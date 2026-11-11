@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import glob
+import json
 import logging
 import shutil
 import subprocess
@@ -9,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .. import ffmpeg
+from . import plates
 
 log = logging.getLogger(__name__)
 SCRIPT = Path(__file__).with_name("blender_scene.py")
@@ -37,8 +39,12 @@ def render_scene(shotlist_path: Path, out: Path, bcfg: dict, fps: int, scale: in
         raise BlenderError(f"rendu échoué pour {shotlist_path.name}:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}")
     # Normalise (fps final, pixel format) — et double les images si animation "en 2".
     src_fps = fps // 2 if on_twos else fps
-    ffmpeg.run(["-framerate", src_fps, "-i", frames / "frame_%04d.png", "-vf", f"fps={fps},format=yuv420p",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-an", out])
+    sl = json.loads(Path(shotlist_path).read_text(encoding="utf-8"))
+    if sl.get("background") == "plate":  # personnages (RGBA) incrustés sur la plaque 2D recadrée par plan
+        plates.composite(frames / "frame_%04d.png", src_fps, sl, out, fps)
+    else:
+        ffmpeg.run(["-framerate", src_fps, "-i", frames / "frame_%04d.png", "-vf", f"fps={fps},format=yuv420p",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-an", out])
     shutil.rmtree(frames, ignore_errors=True)
     return out
 

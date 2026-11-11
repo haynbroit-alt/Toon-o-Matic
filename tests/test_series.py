@@ -18,7 +18,7 @@ def test_series_bible_is_injected(cfg):
     bible = Showrunner(cfg, MockLLM())._bible("fr")
     assert "Les Voisins du 3e" in bible and "RÈGLES DE CONTINUITÉ" in bible
     assert "J'ai un plan." in bible and "apparence:" in bible
-    assert cfg.style["shading"] == "toon"
+    assert cfg.style["name"] == "caricature" and cfg.style["staging"] == "face_to_face"
 
 
 def test_continuity_memory_roundtrip(cfg):
@@ -82,3 +82,47 @@ def test_http_tts_provider(tmp_path):
     assert seen == {"text": "Salut", "lang": "fr", "ref": "voix.wav"}
     with wave.open(str(out)) as w:
         assert w.getframerate() == 22050 and w.getnchannels() == 1
+
+
+@needs_ffmpeg
+def test_plates_mock_generation_and_framing(cfg):
+    from toonomatic.animation.plates import ensure_plates, plate_path, screen_x, shot_framing
+    made = ensure_plates(cfg, ["rue"])
+    assert made and made[0].exists() and made[0].parent == cfg.series_dir / "plates"
+    assert ensure_plates(cfg, ["rue"]) == []  # déjà là : conservée (plaques faites main protégées)
+    assert plate_path(cfg, cfg.cast["sets"]["rue"]) == made[0]
+    sl = {"characters": [{"id": "a", "slot": 0}, {"id": "b", "slot": 1}], "style": cfg.style}
+    z, cx, _ = shot_framing({"camera": "close:a"}, sl)
+    assert z > 1.5 and cx < 0.5 < screen_x(1, 2, 32)
+    assert shot_framing({"camera": "wide"}, sl)[0] == 1.0
+
+
+@needs_ffmpeg
+def test_plate_http_provider(cfg, tmp_path):
+    import base64
+    from toonomatic.animation.plates import _http_plate
+    img = tmp_path / "src.png"
+    import subprocess
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=64x36", "-frames:v", "1", str(img)],
+                   check=True)
+    body = json.dumps({"images": [base64.b64encode(img.read_bytes()).decode()]}).encode()
+    seen = {}
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            seen.update(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    srv = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.handle_request, daemon=True).start()
+    out = _http_plate({"http": {"url": f"http://127.0.0.1:{srv.server_port}/sdapi/v1/txt2img"}},
+                      "rue ensoleillée", "people", tmp_path / "plate.png", size=(320, 180))
+    assert seen["prompt"] == "rue ensoleillée" and seen["negative_prompt"] == "people"
+    assert out.exists()

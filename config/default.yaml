@@ -63,6 +63,14 @@ tts:
     model_id: eleven_multilingual_v2
     api_key_env: ELEVENLABS_API_KEY
 
+plates:                       # décors 2D (styles avec backgrounds: plates)
+  provider: mock              # mock (dégradé de test) | http (serveur d'images) | none
+  negative_prompt: "people, characters, text, watermark, logo, blurry"
+  http:                       # défaut : API Automatic1111 / Forge ; adaptez pour ComfyUI, FLUX…
+    url: http://localhost:7860/sdapi/v1/txt2img
+    json: {prompt: "{prompt}", negative_prompt: "{negative}", width: 1344, height: 768, steps: 28}
+    response_field: images
+
 lipsync:
   provider: auto              # auto | rhubarb | envelope
   rhubarb_path: rhubarb       # https://github.com/DanielSWolf/rhubarb-lip-sync (binaire)

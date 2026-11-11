@@ -17,7 +17,7 @@ rules:                        # règles de continuité intangibles
   - "Lina finit toujours par réparer ce que les autres ont cassé, en soupirant."
   - "Le tonton « connaît quelqu'un » — et ce quelqu'un n'apparaît jamais à l'écran."
   - "Aucune personne réelle, marque réelle ou actualité politique ne doit apparaître."
-style: toon                   # préréglage dans styles/<nom>.yaml
+style: caricature             # préréglage dans styles/<nom>.yaml (toon | soft3d | clay | caricature)
 style_overrides: {}           # ex. {palette: {key_light: "#ffd9a8"}}
 music:
   theme: assets/music/theme_loop.mp3

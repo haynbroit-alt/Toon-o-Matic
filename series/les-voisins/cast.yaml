@@ -8,6 +8,7 @@ characters:
     catchphrases: {fr: ["J'ai un plan.", "Fais-moi confiance."], en: ["I've got a plan.", "Trust me."]}
     look: "Grand, maigre, bonnet orange, blouson de livreur trop large, baskets usées. Silhouette en longueur."
     model_sheet: assets/model_sheets/momo.png
+    signature: {accessories: [cap], outfit_color: "#e8833a", hair: "#2b1d14", skin: "#d9a066", head_scale: 1.3}
     display: Momo
     bio_fr: "Livreur à scooter, philosophe de comptoir, persuadé d'avoir toujours un plan."
     bio_en: "Scooter courier and armchair philosopher, always convinced he has a plan."
@@ -21,6 +22,7 @@ characters:
     catchphrases: {fr: ["Non.", "Je vais faire semblant de pas avoir entendu."], en: ["No.", "I'll pretend I didn't hear that."]}
     look: "Petite, lunettes rondes, chignon fixé par un crayon, salopette avec outils. Silhouette compacte."
     model_sheet: assets/model_sheets/lina.png
+    signature: {accessories: [round_glasses], outfit_color: "#3a9be8", hair: "#4a2a1a", skin: "#c98e5e", head_scale: 1.25}
     display: Lina
     bio_fr: "Voisine du dessus, ingénieure, sarcastique, la seule adulte de la pièce."
     bio_en: "Upstairs neighbour, engineer, sarcastic, the only adult in the room."
@@ -34,6 +36,7 @@ characters:
     catchphrases: {fr: ["Je connais quelqu'un.", "Doucement, doucement."], en: ["I know a guy.", "Easy, easy."]}
     look: "Massif, moustache grise, bleu de travail taché, toujours un chiffon à l'épaule. Silhouette en poire."
     model_sheet: assets/model_sheets/tonton.png
+    signature: {accessories: [sunglasses, moustache], outfit_color: "#3d5a80", hair: "#b8b8b8", skin: "#d6a27a", head_scale: 1.5}
     display: Tonton Rachid
     bio_fr: "Le tonton qui connaît quelqu'un qui connaît quelqu'un. Garagiste. Jamais pressé."
     bio_en: "The uncle who knows a guy who knows a guy. Mechanic. Never in a hurry."
@@ -44,11 +47,19 @@ characters:
       en: {xtts_speaker_wav: assets/voices/tonton_en.wav, chatterbox_ref: assets/voices/tonton_en.wav, bark_preset: v2/en_speaker_3, elevenlabs_voice_id: "", mock_pitch: 115}
 
 sets:
-  rue:      {blend: street.blend,  color: "#5b5f73", label_fr: "La rue",      label_en: "The street"}
-  salon:    {blend: living.blend,  color: "#8a6f5a", label_fr: "Le salon",    label_en: "The living room"}
-  voiture:  {blend: car.blend,     color: "#4b6b5b", label_fr: "La voiture",  label_en: "The car"}
-  garage:   {blend: garage.blend,  color: "#6b5b4b", label_fr: "Le garage",   label_en: "The garage"}
-  epicerie: {blend: shop.blend,    color: "#7a5b7a", label_fr: "L'épicerie",  label_en: "The corner shop"}
+  # plate        : image 2D de fond (16:9, ≥ 1920 px), relative au dossier de la série. Générée si absente.
+  # plate_prompt : description pour le générateur d'images (le style de la série est ajouté automatiquement).
+  # blend        : décor 3D optionnel (prioritaire si backgrounds: sets).
+  rue:      {blend: street.blend, plate: plates/rue.png, color: "#5b5f73", label_fr: "La rue", label_en: "The street",
+             plate_prompt: "quiet suburban street, white houses with red tiled roofs, green hedges, brick garden wall, lamp post, bright blue sky"}
+  salon:    {blend: living.blend, plate: plates/salon.png, color: "#8a6f5a", label_fr: "Le salon", label_en: "The living room",
+             plate_prompt: "cosy modest living room, old sofa, low table, patterned rug, window with daylight, family photos"}
+  voiture:  {blend: car.blend, plate: plates/voiture.png, color: "#4b6b5b", label_fr: "La voiture", label_en: "The car",
+             plate_prompt: "interior of an old taxi seen from the back seat, worn brown seats, dashboard ornament, city through the windshield"}
+  garage:   {blend: garage.blend, plate: plates/garage.png, color: "#6b5b4b", label_fr: "Le garage", label_en: "The garage",
+             plate_prompt: "small car repair garage, red lift post, stacked tyres, metal shelves with oil cans, tool wall"}
+  epicerie: {blend: shop.blend, plate: plates/epicerie.png, color: "#7a5b7a", label_fr: "L'épicerie", label_en: "The corner shop",
+             plate_prompt: "tiny neighbourhood grocery store at night, crowded shelves, neon sign, counter with cash register"}
 
 # Bibliothèque d'animations pré-enregistrées (actions NLA dans les rigs).
 # Le LLM ne peut choisir QUE parmi ces clés : c'est ce qui rend la 3D pilotable par le texte.

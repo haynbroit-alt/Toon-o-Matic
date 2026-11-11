@@ -1,0 +1,29 @@
+# Caricature 3D sur décors 2D — d'après vos références :
+#  - personnages : grosse tête, long cou, nez marqué, texture peinte (rides, barbe), accessoires signatures ;
+#  - ombrage doux, peu contrasté, SANS contour ; couleurs franches, ciel bleu vif ;
+#  - décors : plaques 2D (peintes / générées) derrière les personnages, 3D légère seulement si utile ;
+#  - mise en scène : plans fixes, gros plans de face, deux-plans de profil face à face.
+name: caricature
+shading: flat                 # diffus doux, très peu de spéculaire
+outline: {enabled: false, thickness: 0, color: "#000000"}
+palette:
+  background: "#55c8f0"       # ciel
+  key_light: "#fff6e8"
+  fill_light: "#dbe9ff"
+lighting: {key_energy: 2.6, fill_energy: 350, rim_energy: 80, world_strength: 1.1}
+camera: {lens_wide: 32, lens_two: 45, lens_close: 50, dof: false, f_stop: 4.0}
+color: {view_transform: Standard, look: None, exposure: 0.15}
+render: {samples: 12, motion_blur: false}
+staging: face_to_face         # face_to_face (profil, se regardent) | audience (face caméra)
+plate_style: "flat cartoon background illustration, clean simple shapes, soft gradients, saturated colors, bright daylight, empty scene"
+backgrounds: plates           # plates (images 2D) | sets (.blend) | auto (plate si dispo, sinon .blend)
+placeholder:                  # silhouette des avatars de remplacement
+  head_scale: 1.45
+  neck: 0.45
+  body_radius: 0.36
+acting:
+  blink_every_s: [2.5, 6.0]
+  breathing: 0.012
+  look_at_speaker: true
+  gesture_variants: true
+  anticipation_frames: 2

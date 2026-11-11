@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parent.parent
 pytestmark = pytest.mark.skipif(importlib.util.find_spec("bpy") is None, reason="pip install bpy")
 
 
-def test_blender_scene_renders_with_style_visemes_and_gaze(tmp_path):
+@pytest.mark.parametrize("style_name,background", [("toon", "set"), ("caricature", "plate")])
+def test_blender_scene_renders_with_style_visemes_and_gaze(tmp_path, style_name, background):
     shot = {
         "episode_lang": "fr", "scene_id": "s01", "duration": 1.0, "fps": 12, "resolution": [320, 180],
         "set": {"id": "rue", "blend": "/absent.blend", "color": "#5b5f73", "label": "La rue"},
@@ -24,8 +25,10 @@ def test_blender_scene_renders_with_style_visemes_and_gaze(tmp_path):
                           "envelope": [0.2, 0.8, 0.5], "visemes": []}],
         "shots": [{"camera": "wide", "start": 0, "end": 0.5, "speaker": "momo"},
                   {"camera": "close:lina", "start": 0.5, "end": 1.0, "speaker": "lina"}],
-        "style": yaml.safe_load((ROOT / "styles" / "toon.yaml").read_text()),
+        "style": yaml.safe_load((ROOT / "styles" / f"{style_name}.yaml").read_text()),
+        "background": background,
     }
+    shot["characters"][0]["signature"] = {"accessories": ["sunglasses", "moustache"], "head_scale": 1.4}
     sl = tmp_path / "s01.json"
     sl.write_text(json.dumps(shot))
     out = tmp_path / "frames"

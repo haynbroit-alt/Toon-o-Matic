@@ -60,12 +60,24 @@ Pour changer de fournisseur ponctuellement : `TOONOMATIC_LLM=claude|ollama|mock`
 Chaque réplique est synthétisée avec la voix du personnage dans la langue voulue. Les balises `[rire]`, `[soupir]` et `[laughs]` sont interprétées par Bark (et par ElevenLabs v3), et retirées pour les autres moteurs. Les répliques sont ensuite posées sur une timeline avec des pauses qui dépendent de l'émotion. On en tire **l'enveloppe d'amplitude image par image**, qui pilote le lip-sync.
 
 ### Style visuel (`styles/*.yaml`)
-L'identité artistique est un **préréglage** choisi dans la bible de série (`style: toon`) et ajustable via `style_overrides` :
+L'identité artistique est un **préréglage** choisi dans la bible de série et ajustable via `style_overrides`. La série d'exemple utilise **`caricature`**, construit d'après vos captures de référence :
+- personnages caricaturaux : grosse tête, long cou, nez marqué, texture peinte, **accessoires signatures** (lunettes de soleil, moustache, casquette…) décrits dans `cast.yaml` (`signature`) ;
+- ombrage doux et peu contrasté, **sans contour**, couleurs franches, ciel bleu vif ;
+- **décors en plaques 2D** (voir ci-dessous) ;
+- mise en scène **face à face** : en deux-plans, les personnages se tournent l'un vers l'autre de trois-quarts ou de profil ; les gros plans restent frontaux.
+
+Autres préréglages :
 - `toon` : cel-shading à paliers, ombres colorées, liseré lumineux, contour encré ;
 - `soft3d` : rendu doux type long-métrage (AgX, profondeur de champ, flou de mouvement) ;
 - `clay` : pâte à modeler, matières mates, à combiner avec l'animation « en 2 ».
 
 Chaque préréglage règle la palette, les trois lumières, les focales et la profondeur de champ par type de plan, la gestion des couleurs, et le **jeu** (fréquence des clignements, amplitude de respiration, anticipation des gestes).
+
+### Décors en plaques 2D (`animation/plates.py`)
+Comme dans les références, le décor est une **image** et seuls les personnages sont en 3D. C'est le choix le plus rentable pour une cadence industrielle : un nouveau décor coûte une image, pas une modélisation.
+- Blender rend les personnages **sur fond transparent**. FFmpeg les incruste sur la plaque, **recadrée par plan** : image entière en plan large, léger zoom en deux-plans, zoom fort centré sur le personnage en gros plan (le fond « grossit » comme dans les références).
+- `toonomatic plates` génère les plaques manquantes à partir de `plate_prompt` (dans `cast.yaml`) et du `plate_style` du préréglage, via **votre serveur d'images** (`plates.provider: http`). Le format par défaut est celui de l'API Automatic1111 / Forge ; une passerelle ComfyUI, FLUX ou SDXL auto-hébergée fonctionne aussi. Les plaques déposées à la main dans `series/<slug>/plates/` ne sont jamais écrasées (sauf avec `--force`).
+- `backgrounds: auto` utilise la plaque quand il n'y a pas de décor `.blend`. C'est utile pour un intérieur de voiture en vraie 3D, et tout le reste en plaques.
 
 ### 3. Animation 3D (`animation/blender_scene.py`)
 Une shot list JSON par scène donne le décor, les acteurs, les performances (action, émotion, enveloppe) et un **découpage caméra automatique** (plan large, deux-plans ou gros plan sur le locuteur, avec fusion des plans trop courts). Le script bpy :
@@ -149,8 +161,9 @@ Les briques intégrées sont marquées ✅. Les autres sont des **pistes** à br
 | Scénario | ✅ Ollama (Mistral, Llama, Qwen en local) | ✅ Claude |
 | Voix | ✅ Chatterbox, ✅ XTTS v2, ✅ Bark, Fish Speech / OpenAudio, F5-TTS, CosyVoice, Zonos (via ✅ `http`) | ElevenLabs (optionnel) |
 | Lip-sync | ✅ Rhubarb Lip Sync | — |
-| Création des personnages 3D | image → 3D : TRELLIS, Hunyuan3D-2 ; rigging : Rigify (Blender) | AccuRIG (Reallusion) |
+| Création des personnages 3D | image → 3D : TRELLIS, Hunyuan3D-2 ; rigging : Rigify (Blender) | AccuRIG ; Character Creator / Headshot (Reallusion), adapté aux caricatures à texture peinte |
 | Mouvements | capture depuis une simple vidéo : FreeMoCap ; animation générée à partir d'un texte : modèles de recherche (sortie BVH → Actions NLA) | Move.ai, Rokoko |
+| Décors 2D | ✅ serveur d'images auto-hébergé (Automatic1111 / Forge, ComfyUI, FLUX, SDXL) via `http` | — |
 | Rendu | ✅ Blender Eevee / Cycles en headless | — |
 | Montage | ✅ FFmpeg, libass | — |
 | Orchestration | ✅ cron / systemd, n8n | — |
@@ -167,8 +180,8 @@ Les briques intégrées sont marquées ✅. Les autres sont des **pistes** à br
 ## Arborescence
 ```
 config/        default.yaml (tous les réglages), showrunners/ (prompts d'humour par langue)
-series/<slug>/ series.yaml (bible), cast.yaml (personnages, voix, décors, actions), memory/ (continuité)
-styles/        toon.yaml, soft3d.yaml, clay.yaml (identité visuelle)
+series/<slug>/ series.yaml (bible), cast.yaml (personnages, voix, décors, actions), plates/ (décors 2D), memory/ (continuité)
+styles/        caricature.yaml, toon.yaml, soft3d.yaml, clay.yaml (identité visuelle)
 data/          situations.yaml (banque d'idées), lessons.md (mémoire des revues)
 toonomatic/    writing/ voice/ animation/ editing/ qa.py review.py publish.py pipeline.py cli.py
 deploy/        cron, systemd, n8n, configuration de prod d'exemple

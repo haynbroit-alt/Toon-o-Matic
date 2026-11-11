@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import ffmpeg, qa
 from .animation import blender_render, preview_render
+from .animation.plates import ensure_plates
 from .animation.shotlist import build_shotlist, scene_paths
 from .config import Config
 from .editing.assemble import assemble_episode, make_cutdown
@@ -182,6 +183,8 @@ class Pipeline:
         d = self.epdir(eid) / lang
         script = Script.from_dict(load_json(d / "script_timed.json"))
         anim = self.cfg["animation"]
+        if (self.cfg.style or {}).get("backgrounds", "sets") in ("plates", "auto"):
+            ensure_plates(self.cfg, sorted({s.set for s in script.scenes}))
         jobs = []
         for scene in script.scenes:
             sl_path, mp4 = scene_paths(self.epdir(eid), lang, scene.id)

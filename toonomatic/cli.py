@@ -43,6 +43,9 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("series-new", help="créer une nouvelle série (bible, distribution, mémoire)")
     s.add_argument("slug")
     s.add_argument("--from", dest="template", default="series/les-voisins", help="série modèle")
+    s = sub.add_parser("plates", help="générer les décors 2D manquants de la série")
+    s.add_argument("--force", action="store_true", help="régénérer aussi les plaques existantes")
+    s.add_argument("sets", nargs="*", help="ids de décors (défaut : tous)")
     s = sub.add_parser("series-memory", help="afficher la mémoire de continuité de la série")
 
     s = sub.add_parser("kpi-import", help="importer des KPI (CSV) pour l'apprentissage")
@@ -101,6 +104,10 @@ def main(argv: list[str] | None = None) -> int:
         while True:
             offset = tg.poll(cfg, store, offset)
             time.sleep(a.interval)
+    elif a.cmd == "plates":
+        from .animation.plates import ensure_plates
+        for pth in ensure_plates(cfg, a.sets or None, a.force):
+            print(pth)
     elif a.cmd == "series-memory":
         from .continuity import aired, load_facts
         for e in aired(cfg, 1000):

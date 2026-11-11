@@ -61,8 +61,13 @@ def render_scene(shot: dict, out: Path, font: str | None = None) -> Path:
     script = out.with_suffix(".filter.txt")
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text(",\n".join(f), encoding="utf-8")
-    ffmpeg.run(["-f", "lavfi", "-i", f"color=c={_hex(shot['set']['color'])}:s={w}x{h}:r={fps}:d={dur:.3f}",
-                "-filter_script:v", script, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+    if shot.get("background") == "plate":  # animatique sur la vraie plaque, recadrée par plan
+        from .plates import background_video
+        src = ["-i", background_video(shot, out.with_name(out.stem + "_bgsrc.mp4"), fps)]
+    else:
+        src = ["-f", "lavfi", "-i", f"color=c={_hex(shot['set']['color'])}:s={w}x{h}:r={fps}:d={dur:.3f}"]
+    ffmpeg.run([*src, "-filter_script:v", script, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
                 "-pix_fmt", "yuv420p", "-an", out])
+    out.with_name(out.stem + "_bgsrc.mp4").unlink(missing_ok=True)
     script.unlink(missing_ok=True)
     return out

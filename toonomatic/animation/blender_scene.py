@@ -106,7 +106,12 @@ class Style:
             nt.links.new(emit.outputs[0], out.inputs["Surface"])
         elif bsdf:
             bsdf.inputs["Base Color"].default_value = color
-            bsdf.inputs["Roughness"].default_value = {"clay": 0.95, "toon": 0.7}.get(self.kind, 0.45)
+            bsdf.inputs["Roughness"].default_value = {"clay": 0.95, "toon": 0.7, "flat": 0.85}.get(self.kind, 0.45)
+            if self.kind == "flat":  # rendu caricature : quasi pas de reflets, ombres douces
+                for k in ("Specular IOR Level", "Specular"):
+                    if k in bsdf.inputs:
+                        bsdf.inputs[k].default_value = 0.08
+                        break
             if self.kind == "soft" and "Coat Weight" in bsdf.inputs:
                 bsdf.inputs["Coat Weight"].default_value = 0.15
         return m
@@ -141,7 +146,7 @@ class Style:
             node = world.node_tree.nodes.get("Background")
             if node:
                 node.inputs["Color"].default_value = bg
-                node.inputs["Strength"].default_value = 0.6
+                node.inputs["Strength"].default_value = float(self.s.get("lighting", {}).get("world_strength", 0.6))
 
 
 STYLE = None
@@ -191,6 +196,16 @@ def build_set(info):
     return coll, False
 
 
+def staging_yaw(i, n):
+    """face_to_face : les personnages se tournent les uns vers les autres (profil / trois-quarts)."""
+    if STYLE.s.get("staging") != "face_to_face" or n < 2:
+        return 0.0
+    x = (i - (n - 1) / 2)
+    if abs(x) < 1e-6:
+        return 0.0
+    return math.radians(62 if x < 0 else -62)
+
+
 def slot_location(i, n):
     empty = bpy.data.objects.get(f"SLOT_{i}")
     if empty:
@@ -206,6 +221,8 @@ class Actor:
         self.id = info["id"]
         self.loc = slot_location(info["slot"], n)
         self.rng = random.Random(f"{scene_seed}:{self.id}")
+        self.base_yaw = staging_yaw(info["slot"], n)
+        self.head_z = self.HEAD_Z
         self.coll = append_collection(info["rig"], self.id)
         self.rigged = self.coll is not None
         self.armature = self.mesh = self.root = self.mouth = self.head = None
@@ -220,43 +237,88 @@ class Actor:
             self.root = self.armature or next(iter(self.coll.all_objects), None)
             if self.root:
                 self.root.location = self.loc
+                self.root.rotation_euler = (0, 0, self.base_yaw)
             self._rig_gaze()
         else:
             self._placeholder(info)
+            self.root.rotation_euler = (0, 0, self.base_yaw)
 
     def head_pos(self):
-        return (self.loc[0], self.loc[1], self.HEAD_Z)
+        return (self.loc[0], self.loc[1], self.head_z)
+
+    def facing(self):
+        return (math.sin(self.base_yaw), -math.cos(self.base_yaw))
 
     def _placeholder(self, info):
-        col = hex_rgba(info["color"])
+        """Avatar caricatural : grosse tête, long cou, accessoires signatures (cf. cast.yaml)."""
+        sig = info.get("signature") or {}
+        ph = STYLE.s.get("placeholder", {})
+        hs = float(sig.get("head_scale", 1.0)) * float(ph.get("head_scale", 1.0))
+        neck = float(ph.get("neck", 0.15))
+        br = float(ph.get("body_radius", 0.45))
+        skin = hex_rgba(sig.get("skin", info["color"]))
+        outfit = hex_rgba(sig.get("outfit_color", info["color"]))
+        hair = hex_rgba(sig.get("hair", "#2b1d14"))
+        dark = (0.02, 0.02, 0.025, 1)
         x, y, _ = self.loc
+        R = 0.5 * hs
+        neck_top = 1.6 + neck
+        cz = neck_top + R * 0.85
+        self.head_z = cz
         bpy.ops.object.empty_add(location=(x, y, 0))
         self.root = bpy.context.active_object
         self.root.name = f"{self.id}_root"
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.45, depth=1.6, location=(x, y, 0.8))
-        body = bpy.context.active_object
-        body.data.materials.append(STYLE.material(f"{self.id}_skin", col))
+
+        def add(kind, loc, mat, scale=None, **kw):
+            getattr(bpy.ops.mesh, f"primitive_{kind}_add")(location=loc, **kw)
+            ob = bpy.context.active_object
+            ob.data.materials.append(mat)
+            if scale:
+                ob.scale = scale
+            return ob
+
+        m_out, m_skin = STYLE.material(f"{self.id}_outfit", outfit), STYLE.material(f"{self.id}_skin", skin)
+        m_hair, m_dark = STYLE.material(f"{self.id}_hair", hair), STYLE.material(f"{self.id}_dark", dark)
+        body = add("cylinder", (x, y, 0.8), m_out, radius=br, depth=1.6)
         self._parent(body, self.root)
-        # pivot de tête : porte le regard (rotation Z) indépendamment du corps
-        bpy.ops.object.empty_add(location=(x, y, 1.7))
+        neck_ob = add("cylinder", (x, y, 1.6 + neck / 2), m_skin, radius=0.11 * max(1.0, hs * 0.8), depth=neck + 0.1)
+        self._parent(neck_ob, self.root)
+        bpy.ops.object.empty_add(location=(x, y, neck_top))
         self.head = bpy.context.active_object
         self.head.name = f"{self.id}_head"
         self._parent(self.head, self.root)
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.5, location=(x, y, self.HEAD_Z))
-        skull = bpy.context.active_object
-        skull.data.materials.append(STYLE.material(f"{self.id}_skin2", col))
-        self._parent(skull, self.head)
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.15, location=(x, y - 0.45, 1.85))
-        self.mouth = bpy.context.active_object
-        self.mouth.data.materials.append(STYLE.material(f"{self.id}_mouth", (0.03, 0.01, 0.01, 1)))
-        self.mouth.scale = (1.1, 0.4, 0.1)
-        self._parent(self.mouth, self.head)
-        for ex in (-0.17, 0.17):
-            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.08, location=(x + ex, y - 0.45, 2.15))
-            e = bpy.context.active_object
-            e.data.materials.append(STYLE.material("eye", (1, 1, 1, 1)))
-            self._parent(e, self.head)
+        parts = [add("uv_sphere", (x, y, cz), m_skin, scale=(0.92, 1.0, 1.08), radius=R)]
+        parts.append(add("uv_sphere", (x, y - R * 0.95, cz - R * 0.05), m_skin, scale=(0.7, 1.4, 1.0),
+                         radius=R * 0.17))  # nez caricatural
+        parts.append(add("uv_sphere", (x, y + R * 0.15, cz + R * 0.35), m_hair, scale=(1.0, 0.95, 0.6),
+                         radius=R * 0.98))  # chevelure / calotte
+        self.mouth = add("uv_sphere", (x, y - R * 0.86, cz - R * 0.45), STYLE.material(f"{self.id}_mouth",
+                         (0.25, 0.05, 0.05, 1)), radius=R * 0.22)
+        self.mouth.scale = (1.1, 0.35, 0.1)
+        parts.append(self.mouth)
+        acc = set(sig.get("accessories") or [])
+        for ex in (-0.36, 0.36):
+            e = add("uv_sphere", (x + ex * R, y - R * 0.82, cz + R * 0.18), STYLE.material("eye", (1, 1, 1, 1)),
+                    radius=R * 0.14)
+            parts.append(e)
             self.eyes.append(e)
+            if acc & {"sunglasses", "round_glasses"}:
+                lens = add("cylinder", (x + ex * R, y - R * 0.98, cz + R * 0.18), m_dark,
+                           radius=R * (0.24 if "sunglasses" in acc else 0.2), depth=0.03,
+                           rotation=(math.radians(90), 0, 0))
+                if "round_glasses" in acc:  # monture fine, verre clair : on garde les yeux visibles
+                    lens.scale = (1, 1, 0.3)
+                    lens.location.y -= 0.05
+                parts.append(lens)
+        if acc & {"sunglasses", "round_glasses"}:
+            parts.append(add("cube", (x, y - R * 0.98, cz + R * 0.2), m_dark, scale=(R * 0.25, 0.02, 0.02)))
+        if "moustache" in acc:
+            parts.append(add("cube", (x, y - R * 0.95, cz - R * 0.28), m_hair, scale=(R * 0.3, 0.05, 0.05)))
+        if "cap" in acc:
+            parts.append(add("cylinder", (x, y, cz + R * 0.78), m_out, radius=R * 0.95, depth=R * 0.35))
+            parts.append(add("cube", (x, y - R * 0.9, cz + R * 0.68), m_out, scale=(R * 0.6, R * 0.45, 0.03)))
+        for p in parts:
+            self._parent(p, self.head)
 
     @staticmethod
     def _parent(child, parent):
@@ -360,8 +422,8 @@ class Actor:
                 self.mouth.keyframe_insert("scale", frame=f0 + i)
 
     def _procedural(self, action, f0, f1):
-        r, base = self.root, self.loc
-        r.location, r.rotation_euler = base, (0, 0, 0)
+        r, base, yaw = self.root, self.loc, self.base_yaw
+        r.location, r.rotation_euler = base, (0, 0, yaw)
         r.keyframe_insert("location", frame=max(1, f0 - 2))
         r.keyframe_insert("rotation_euler", frame=max(1, f0 - 2))
         mid = (f0 + f1) // 2
@@ -370,12 +432,12 @@ class Actor:
             r.location = (base[0] + dx, base[1] + dy, base[2] + dz)
             r.keyframe_insert("location", frame=f0 + 3)
         elif action in ("talk_hands", "point", "shrug"):
-            r.rotation_euler = (0, math.radians(6), math.radians(self.rng.uniform(-15, 15)))
+            r.rotation_euler = (0, math.radians(6), yaw + math.radians(self.rng.uniform(-15, 15)))
             r.keyframe_insert("rotation_euler", frame=mid)
         elif action == "facepalm":
-            r.rotation_euler = (math.radians(15), 0, 0)
+            r.rotation_euler = (math.radians(15), 0, yaw)
             r.keyframe_insert("rotation_euler", frame=mid)
-        r.location, r.rotation_euler = base, (0, 0, 0)
+        r.location, r.rotation_euler = base, (0, 0, yaw)
         r.keyframe_insert("location", frame=f1)
         r.keyframe_insert("rotation_euler", frame=f1)
 
@@ -416,8 +478,9 @@ class Actor:
             self.gaze.location = target
             self.gaze.keyframe_insert("location", frame=max(1, frame))
         elif self.head:
-            dx = target[0] - self.loc[0]
-            ang = max(-0.6, min(0.6, math.atan2(dx, 4.0)))
+            dx, dy = target[0] - self.loc[0], target[1] - self.loc[1]
+            want = math.atan2(dx, 4.0) if abs(self.base_yaw) < 1e-6 else math.atan2(dx, -dy if abs(dy) > 1e-3 else -1e-3)
+            ang = max(-0.6, min(0.6, want - self.base_yaw))
             self.head.keyframe_insert("rotation_euler", frame=max(1, frame - 4))
             self.head.rotation_euler = (0, 0, ang)
             self.head.keyframe_insert("rotation_euler", frame=max(1, frame))
@@ -469,8 +532,12 @@ def setup_cameras(actors):
             "two_shot": add_camera("CAM_two", (1.5, -8, 2.4), (0, 0, 1.6), cs.get("lens_two", 40))}
     for a in actors:
         x, y, _ = a.loc
-        cams[f"close:{a.id}"] = add_camera(f"CAM_close_{a.id}", (x * 0.6 + 0.6, y - 4.5, 2.1),
-                                           (x, y, 1.9), cs.get("lens_close", 55))
+        fx, fy = a.facing()
+        dx, dy = fx * 0.6, fy * 0.6 - 1.0  # entre l'axe du regard et la face caméra
+        norm = math.hypot(dx, dy) or 1.0
+        hz = a.head_z
+        cams[f"close:{a.id}"] = add_camera(f"CAM_close_{a.id}", (x + dx / norm * 4.5, y + dy / norm * 4.5, hz + 0.1),
+                                           (x, y, hz - 0.1), cs.get("lens_close", 55))
     return cams
 
 
@@ -537,7 +604,12 @@ def main():
     sc = bpy.context.scene
     STYLE = Style(sl.get("style"), sc.render.engine)
     STYLE.apply_scene(sc)
-    build_set(sl["set"])
+    if sl.get("background") == "plate":
+        # personnages seuls, fond transparent : le décor 2D est incrusté par FFmpeg
+        sc.render.film_transparent = True
+        sc.render.image_settings.color_mode = "RGBA"
+    else:
+        build_set(sl["set"])
     seed = f"{sl.get('episode_lang')}:{sl['scene_id']}"
     actors = [Actor(c, len(sl["characters"]), seed) for c in sl["characters"]]
     by_id = {x.id: x for x in actors}
