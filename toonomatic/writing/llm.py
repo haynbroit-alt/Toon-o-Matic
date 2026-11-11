@@ -34,7 +34,10 @@ class ClaudeLLM:
         except ImportError as e:  # pragma: no cover
             raise LLMError("pip install 'toonomatic[claude]' pour utiliser Claude") from e
         self._anthropic = anthropic
-        self.client = anthropic.Anthropic()  # ANTHROPIC_API_KEY / profil `ant auth login`
+        # ANTHROPIC_API_KEY / profil `ant auth login`. Une clé collée depuis un téléphone garde souvent
+        # un espace ou un retour à la ligne : on les retire.
+        key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+        self.client = anthropic.Anthropic(api_key=key) if key else anthropic.Anthropic()
         self.model = cfg.get("model", "claude-opus-5-5")
         self.effort = cfg.get("effort", "high")
         self.max_tokens = int(cfg.get("max_tokens", 64000))
@@ -60,6 +63,10 @@ class ClaudeLLM:
                     msg = s.get_final_message()
         except self._anthropic.RateLimitError as e:
             raise LLMError(f"[{task}] limite de débit atteinte, réessayer plus tard") from e
+        except self._anthropic.AuthenticationError as e:
+            raise LLMError(f"[{task}] clé ANTHROPIC_API_KEY refusée par Anthropic : vérifiez qu'il s'agit bien "
+                           "d'une clé API (elle commence par « sk-ant- », créée sur console.anthropic.com), "
+                           "copiée en entier") from e
         except self._anthropic.APIStatusError as e:
             raise LLMError(f"[{task}] erreur API {e.status_code}: {e.message}") from e
         except self._anthropic.APIConnectionError as e:
@@ -153,7 +160,7 @@ class OpenAICompatLLM:
         self.name = name
         self.base = cfg["base_url"].rstrip("/")
         self.model = os.environ.get(cfg.get("model_env", ""), "") or cfg["model"]
-        self.key = os.environ.get(cfg.get("api_key_env", ""), "") if cfg.get("api_key_env") else ""
+        self.key = os.environ.get(cfg.get("api_key_env", ""), "").strip() if cfg.get("api_key_env") else ""
         self.timeout = int(cfg.get("timeout_s", 180))
         self.max_tokens = int(cfg.get("max_tokens", 4096))
         self.temperature = float(cfg.get("temperature", 0.9))
@@ -193,6 +200,9 @@ class OpenAICompatLLM:
             if r.status_code == 400 and fmt["type"] == "json_schema":
                 fmt = {"type": "json_object"}  # ce modèle ne gère pas la sortie contrainte par schéma
                 continue
+            if r.status_code in (401, 403):
+                raise LLMError(f"[{task}] clé refusée par {self.name} : vérifiez la variable d'environnement "
+                               "de ce fournisseur (clé copiée en entier, sans espace)")
             if r.status_code >= 400:
                 raise LLMError(f"[{task}] {self.name} HTTP {r.status_code} : {r.text[:200]}")
             try:
