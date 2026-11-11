@@ -1,0 +1,17 @@
+# Render Blueprint : uniquement le serveur de COMMAND (léger). Le STUDIO GPU vit ailleurs, à la demande.
+services:
+  - type: web
+    name: toonomatic-command
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter            # le plan gratuit s'endort : acceptable pour piloter, pas pour produire
+    healthCheckPath: /api/health
+    envVars:
+      - key: TOONOMATIC_TOKEN
+        generateValue: true  # récupérez-le dans le tableau de bord Render pour vous connecter
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: VAULT_ACCESS_KEY_ID
+        sync: false
+      - key: VAULT_SECRET_ACCESS_KEY
+        sync: false

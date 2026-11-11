@@ -14,6 +14,62 @@ Le système est organisé comme un petit studio : une **série** est un dossier 
 
 Chaque bloc utilise un **fournisseur interchangeable**. Le mode `mock` fait tourner toute la chaîne **sans GPU, sans Blender et sans clé API**. Il sert aux tests, à la CI et à valider l'installation.
 
+## Toon-o-Matic CLOUD FACTORY : le téléphone comme télécommande
+
+L'usine ne tourne jamais en permanence et ne déplace jamais un gros fichier pour rien.
+
+```
+ 📱 COMMAND (PWA)  ──►  serveur de commande (Render)  ──►  VAULT (R2 / S3)  ◄──►  STUDIO à la demande
+    commander,          léger : API + application,          mémoire permanente :      machine CPU (brouillons)
+    regarder en         ne calcule rien de lourd             séries, personnages,      ou GPU louée (final) :
+    streaming, valider                                       épisodes, file d'attente  pull → produire → push → s'arrêter
+                                   BRAIN : LLM (Claude ou open source) · DISTRIBUTION : YouTube, TikTok…
+```
+
+| Partie | Rôle | Dans le code |
+|---|---|---|
+| **COMMAND** | PWA installable sur Android : commander, regarder en streaming, décider | `toonomatic serve`, `toonomatic/command/` |
+| **BRAIN** | scénarios, cohérence, réalisateur automatique | `writing/`, `director.py`, `continuity.py` |
+| **STUDIO** | voix, animation 3D, montage, sur des machines jetables | `studio.py` (`toonomatic worker`), `voice/`, `animation/`, `editing/` |
+| **VAULT** | état de référence des épisodes, séries, personnages, décors, voix | `vault.py` (local ou S3 / Cloudflare R2 / MinIO), `VaultStore` |
+| **DISTRIBUTION** | kit et envoi YouTube / TikTok | `packaging.py`, `publish.py` |
+
+Chaque partie se remplace sans toucher aux autres : LLM, moteur vocal, stockage, lanceur GPU et plateformes sont des fournisseurs interchangeables.
+
+### Trois niveaux de production
+| Niveau | Contenu | Machine | Coût |
+|---|---|---|---|
+| **Brouillon** (`draft`) | vrai script FR/EN, voix temporaires (Piper sur CPU), animatique sur le décor, sous-titres | CPU (le serveur lui-même) | quasi nul |
+| **Validation** | vraies voix, personnages 3D, regards, gestes, rendu basse définition, animation « en 2 » | CPU | faible |
+| **Final** | rendu HD, kit de publication YouTube et TikTok | GPU louée à la demande | plus élevé, **seulement si validé** |
+
+- **Valider** depuis le téléphone fait monter d'un niveau. Le texte n'est jamais réécrit, et les voix sont conservées si le moteur vocal ne change pas (empreinte de configuration). Seul le niveau final peut être publié.
+- **Aucun GPU sans votre accord** : `studio.gpu_launcher: none` par défaut, et une machine CPU refuse les travaux GPU.
+
+### Réalisateur automatique (`director.py`)
+Il relit chaque épisode **avant** de vous le présenter, selon cinq critères notés sur 10 : histoire, personnages, animation, son, publication.
+
+Il commande des **corrections ciblées** sans recommencer l'épisode :
+- **une réplique** réécrite : elle seule est revoicée, et seule sa scène est re-rendue ;
+- **une voix** refaite : silence, saturation, débit incompréhensible, ou dérive du moteur vocal ;
+- **une scène** re-rendue : images noires ou figées ;
+- **le kit de publication** régénéré.
+
+Il fait au plus `director.max_rounds` passes de correction. Vous gardez le dernier mot.
+
+### Mémoire permanente
+Les personnages sont stockés une fois dans le Vault (`series/<slug>/`) : modèle 3D, signature visuelle, voix, personnalité, répliques fétiches, relations, faits de continuité. Chaque épisode **réutilise** ces ressources et ne calcule que ses nouvelles scènes.
+
+### Déploiement
+1. **Vault** : un bucket Cloudflare R2 (aucun frais de sortie, idéal pour le streaming), avec ses clés dans `VAULT_ACCESS_KEY_ID` et `VAULT_SECRET_ACCESS_KEY`. Renseignez `endpoint_url` dans `config/cloud.yaml`.
+2. **Command** sur Render : `render.yaml` (image Docker légère avec FFmpeg). Le jeton `TOONOMATIC_TOKEN` est généré par Render ; ouvrez l'URL sur Android, connectez-vous, puis *Ajouter à l'écran d'accueil*.
+3. **Studio GPU**, seulement une fois la chaîne validée en mode économique : l'image `Dockerfile.studio` (Blender, voix) lance `toonomatic worker --gpu`. Elle traite **une** commande puis s'arrête. Branchez-la via `studio.gpu_launcher` :
+   - `webhook` : un point d'entrée serverless GPU ;
+   - `command` : n'importe quelle CLI de fournisseur ;
+   - `none` : un worker que vous démarrez vous-même.
+
+Pilote V1 en local, sans rien déployer : `toonomatic -c config/pilot.yaml serve`, puis ouvrez http://127.0.0.1:8080 et commandez un brouillon. Le pilote, c'est 1 série, 3 personnages, 1 décor et un épisode de 2 minutes en FR et EN.
+
 ## Démarrage rapide
 
 ```bash
@@ -183,7 +239,9 @@ config/        default.yaml (tous les réglages), showrunners/ (prompts d'humour
 series/<slug>/ series.yaml (bible), cast.yaml (personnages, voix, décors, actions), plates/ (décors 2D), memory/ (continuité)
 styles/        caricature.yaml, toon.yaml, soft3d.yaml, clay.yaml (identité visuelle)
 data/          situations.yaml (banque d'idées), lessons.md (mémoire des revues)
-toonomatic/    writing/ voice/ animation/ editing/ qa.py review.py publish.py pipeline.py cli.py
+toonomatic/    writing/ voice/ animation/ editing/ director.py studio.py vault.py command/ (API + PWA) pipeline.py cli.py
+config/        pilot.yaml (V1), cloud.yaml (R2 + Render), default.yaml
+render.yaml, Dockerfile (COMMAND), Dockerfile.studio (STUDIO GPU jetable)
 deploy/        cron, systemd, n8n, configuration de prod d'exemple
 runs/<id>/     premise.json, <lang>/script*.json, audio/, render/, *.mp4, *.srt, package/, qa_report.json
 ```

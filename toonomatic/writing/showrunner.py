@@ -129,6 +129,9 @@ class Showrunner:
         n_beats = max(4, math.ceil(target / float(ep.get("minutes_per_scene", 1.3))))
         cast = situation.get("cast") or list(self.cast["characters"])
         sets = situation.get("sets") or list(self.cast["sets"])
+        allowed = ep.get("allowed_sets")  # pilote : un seul décor principal
+        if allowed:
+            sets = [x for x in sets if x in allowed] or list(allowed)
         system = ("Tu es le directeur d'écriture d'une web-série animée bilingue. Tu conçois la "
                   "structure d'un épisode (indépendante de la langue) : une escalade comique en "
                   "trois actes, un running gag, et une chute finale.\n\n" + self._bible())

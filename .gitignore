@@ -6,3 +6,4 @@ out/
 *.sqlite
 .env
 assets/cache/
+vault/

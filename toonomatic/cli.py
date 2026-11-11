@@ -21,6 +21,20 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--count", type=int, help="nombre d'épisodes (défaut : cadence.episodes_per_day)")
     s.add_argument("--seed", type=int)
     s.add_argument("--minutes", type=float, help="surcharge la durée visée")
+    s.add_argument("--tier", help="niveau de production : draft | validation | final")
+
+    s = sub.add_parser("promote", help="passer un épisode au niveau supérieur (garde le texte)")
+    s.add_argument("episode_id")
+    s.add_argument("tier", help="validation | final")
+    s.add_argument("--now", action="store_true", help="produire tout de suite sur cette machine")
+
+    s = sub.add_parser("serve", help="serveur de COMMAND + application mobile (PWA)")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=int(__import__("os").environ.get("PORT", 8080)))
+
+    s = sub.add_parser("worker", help="machine du STUDIO : prend une commande dans la file, produit, s'arrête")
+    s.add_argument("--loop", action="store_true", help="rester actif et surveiller la file")
+    s.add_argument("--gpu", action="store_true", help="cette machine accepte les travaux GPU (niveau final)")
 
     sub.add_parser("resume", help="reprendre les épisodes en file / en échec / à refaire")
     sub.add_parser("daily", help="tâche planifiée : reprend la file puis produit la fournée du jour")
@@ -65,12 +79,29 @@ def main(argv: list[str] | None = None) -> int:
     cfg = load_config(a.config, overrides)
 
     from .pipeline import Pipeline
-    from .store import Store
+    from .store import make_store
+
+    if a.cmd == "serve":
+        from .command.server import serve
+        serve(cfg, a.host, a.port)
+        return 0
+    if a.cmd == "worker":
+        from .studio import run_worker
+        n = run_worker(cfg, once=not a.loop, can_gpu=a.gpu)
+        print(f"{n} commande(s) traitée(s)")
+        return 0
+    if a.cmd == "promote":
+        pipe = Pipeline(cfg)
+        pipe.promote(a.episode_id, a.tier)
+        print(f"{a.episode_id} → {a.tier}" + ("" if a.now else " (en file : `toonomatic resume`)"))
+        if a.now:
+            print(pipe.run(a.episode_id))
+        return 0
 
     if a.cmd in ("produce", "resume", "daily", "publish"):
         pipe = Pipeline(cfg)
         if a.cmd == "produce":
-            ids = pipe.produce(a.count or cfg["cadence"]["episodes_per_day"], a.seed)
+            ids = pipe.produce(a.count or cfg["cadence"]["episodes_per_day"], a.seed, tier=a.tier)
         elif a.cmd == "resume":
             ids = pipe.resume()
         elif a.cmd == "daily":
@@ -83,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{i}\t{ep['status']}\trisque={ep['risk']}")
         return 0 if all(pipe.store.get(i)["status"] != "failed" for i in ids) else 1
 
-    store = Store(cfg.path(cfg["database"]))
+    store = make_store(cfg)
     if a.cmd == "list":
         for ep in store.list():
             print(f"{ep['id']}\t{ep['status']}\trisque={ep['risk']}\tétapes={len(ep['stages'])}")

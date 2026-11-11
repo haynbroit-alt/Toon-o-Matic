@@ -1,0 +1,19 @@
+# USINE CLOUD : COMMAND sur Render, VAULT sur Cloudflare R2, STUDIO à la demande.
+# Secrets (jamais dans ce fichier) : TOONOMATIC_TOKEN, ANTHROPIC_API_KEY,
+#   VAULT_ACCESS_KEY_ID, VAULT_SECRET_ACCESS_KEY, STUDIO_WEBHOOK_TOKEN
+state: {backend: vault}
+vault:
+  backend: s3
+  s3:
+    bucket: toonomatic
+    endpoint_url: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+    region: auto
+workdir: /tmp/toonomatic/runs        # disque de travail jetable
+llm: {provider: claude}
+studio:
+  cpu_launcher: inline               # brouillons & validations : sur le serveur COMMAND (CPU)
+  gpu_launcher: none                 # à activer seulement après validation de la chaîne en mode économique :
+  # gpu_launcher: webhook            #   point d'entrée serverless GPU qui lance `toonomatic worker --gpu`
+  # webhook: {url: "https://…", token_env: STUDIO_WEBHOOK_TOKEN}
+  # gpu_launcher: command            #   ou n'importe quelle CLI de fournisseur
+  # gpu_command: "./deploy/gpu-oneshot.sh {episode_id}"

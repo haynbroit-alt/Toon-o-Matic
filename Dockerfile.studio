@@ -1,0 +1,13 @@
+# Image STUDIO GPU : Blender + voix ; démarre, traite UNE commande, s'arrête.
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+ARG BLENDER_VERSION=4.2.3
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip ffmpeg fonts-dejavu-core \
+      curl xz-utils libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libegl1 libxkbcommon0 libsm6 \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL "https://download.blender.org/release/Blender${BLENDER_VERSION%.*}/blender-${BLENDER_VERSION}-linux-x64.tar.xz" \
+      | tar -xJ -C /opt && ln -s /opt/blender-${BLENDER_VERSION}-linux-x64/blender /usr/local/bin/blender
+WORKDIR /app
+COPY . .
+RUN pip3 install --no-cache-dir ".[claude,cloud,chatterbox]"
+ENV PYTHONUNBUFFERED=1
+CMD ["toonomatic", "-c", "config/cloud.yaml", "worker", "--gpu"]

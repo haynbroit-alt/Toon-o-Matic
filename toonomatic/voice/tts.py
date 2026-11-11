@@ -59,6 +59,36 @@ class MockTTS:
         return out
 
 
+class PiperTTS:
+    """Piper (open source, CPU) : voix « brouillon » pour juger le texte et le rythme sans GPU.
+    Une seule voix par langue ; chaque personnage est différencié par un décalage de hauteur."""
+
+    def __init__(self, cfg: dict):
+        import shutil
+        self.sr = int(cfg.get("sample_rate", 48000))
+        c = cfg.get("piper", {})
+        self.exe = c.get("executable", "piper")
+        self.models = c.get("models", {})
+        if not shutil.which(self.exe):
+            raise TTSError("piper introuvable (https://github.com/rhasspy/piper)")
+
+    def synthesize(self, text, lang, voice, emotion, out):  # pragma: no cover - binaire externe
+        import subprocess
+        model = voice.get("piper_model") or self.models.get(lang)
+        if not model or not Path(model).exists():
+            raise TTSError(f"modèle Piper manquant pour {lang} : {model}")
+        tmp = out.with_suffix(".raw.wav")
+        proc = subprocess.run([self.exe, "--model", str(model), "--output_file", str(tmp)],
+                              input=strip_tags(text), text=True, capture_output=True)
+        if proc.returncode != 0:
+            raise TTSError(f"piper : {proc.stderr[-300:]}")
+        factor = max(0.7, min(1.5, float(voice.get("mock_pitch", 180)) / 180))
+        ffmpeg.run(["-i", tmp, "-af", f"asetrate=22050*{factor:.3f},aresample=22050,atempo={1 / factor:.3f}",
+                    "-ac", 1, "-ar", self.sr, "-sample_fmt", "s16", out])
+        tmp.unlink(missing_ok=True)
+        return out
+
+
 class XTTS:
     def __init__(self, cfg: dict):
         self.sr = int(cfg.get("sample_rate", 48000))
@@ -215,13 +245,23 @@ class ElevenLabsTTS:
         return out
 
 
+PROVIDERS = {"mock": MockTTS, "piper": PiperTTS, "xtts": XTTS, "bark": BarkTTS,
+             "chatterbox": ChatterboxTTS, "http": HttpTTS, "elevenlabs": ElevenLabsTTS}
+
+
 def make_tts(cfg: dict) -> TTS:
     p = cfg.get("provider", "mock")
-    cls = {"mock": MockTTS, "xtts": XTTS, "bark": BarkTTS, "chatterbox": ChatterboxTTS,
-           "http": HttpTTS, "elevenlabs": ElevenLabsTTS}.get(p)
+    cls = PROVIDERS.get(p)
     if not cls:
         raise TTSError(f"Fournisseur TTS inconnu: {p}")
-    return cls(cfg)
+    try:
+        return cls(cfg)
+    except TTSError as e:
+        fb = cfg.get("fallback")
+        if not fb or fb == p:
+            raise
+        log.warning("TTS %s indisponible (%s) → repli sur %s", p, e, fb)
+        return make_tts({**cfg, "provider": fb, "fallback": None})
 
 
 # --------------------------------------------------------------------------- audio utils

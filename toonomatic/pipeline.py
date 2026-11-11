@@ -1,7 +1,11 @@
 """Orchestrateur : enchaîne les étapes d'un épisode, de façon idempotente et reprenable.
 
-    premise → script_<lang> → voice_<lang> → subs_<lang> → render_<lang> → edit_<lang> → qa → review
-                                                                     (approved) → publish
+    premise → script_<lang> → voice_<lang> → subs_<lang> → render_<lang> → edit_<lang> → package_<lang>
+            → director (corrections ciblées) → qa → review → (promote → niveau supérieur) → publish
+
+Trois NIVEAUX (config `production.tiers`) : brouillon → validation → final. Le texte (prémisse,
+scripts) est écrit une fois ; promouvoir un épisode ne recalcule que ce qui dépend du niveau,
+et garde même les voix si le moteur vocal ne change pas.
 
 Chaque étape écrit ses artefacts dans runs/<episode_id>/ et se marque « faite » dans SQLite :
 un crash, un « Refaire » ou un changement de fournisseur ne relance que ce qui est nécessaire.
@@ -9,6 +13,9 @@ un crash, un « Refaire » ou un changement de fournisseur ne relance que ce qui
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import json
+import shutil
 import logging
 import time
 from pathlib import Path
@@ -26,7 +33,8 @@ from .models import Premise, Script, load_json, save_json
 from .continuity import record_episode
 from .packaging import build_package
 from .publish import publish
-from .store import Store
+from .store import make_store
+from . import director
 from .voice.lipsync import LipSync
 from .voice.tts import build_dialogue_track, make_tts
 from .writing.llm import make_llm
@@ -39,9 +47,11 @@ MAX_RETRIES = 3
 class Pipeline:
     def __init__(self, cfg: Config):
         ffmpeg.require()
+        self.base = cfg
         self.cfg = cfg
-        self.store = Store(cfg.path(cfg["database"]))
-        self._llm = self._tts = None
+        self.store = make_store(cfg)
+        self._llm = None
+        self._tts_cache: dict[str, object] = {}
 
     # lazy : on ne charge un modèle GPU que si l'étape en a besoin
     @property
@@ -52,16 +62,36 @@ class Pipeline:
 
     @property
     def tts(self):
-        if self._tts is None:
-            self._tts = make_tts(self.cfg["tts"])
-        return self._tts
+        key = self.tts_signature()
+        if key not in self._tts_cache:  # un moteur par configuration (les niveaux peuvent en changer)
+            self._tts_cache[key] = make_tts(self.cfg["tts"])
+        return self._tts_cache[key]
+
+    def tts_signature(self) -> str:
+        t = self.cfg["tts"]
+        sig = {"provider": t.get("provider"), "sample_rate": t.get("sample_rate"),
+               "conf": t.get(t.get("provider"), {}),
+               "voices": {k: v["voices"] for k, v in self.cfg.cast["characters"].items()}}
+        return hashlib.sha256(json.dumps(sig, sort_keys=True).encode()).hexdigest()[:16]
+
+    def tier_of(self, episode_id: str) -> str:
+        ep = self.store.get(episode_id) or {}
+        return ep.get("info", {}).get("tier") or self.base.get("production.default_tier", "final")
+
+    def _use_tier(self, episode_id: str) -> str:
+        tier = self.tier_of(episode_id)
+        tiers = self.base.get("production.tiers") or {}
+        self.cfg = self.base.tier(tier) if tier in tiers else self.base
+        return tier
 
     def epdir(self, episode_id: str) -> Path:
         return self.cfg.workdir / episode_id
 
     # ------------------------------------------------------------------ entrée principale
-    def produce(self, count: int, seed: int | None = None) -> list[str]:
-        situations = pick_situations(self.cfg, self.store, count, seed, kpi_weights(self.store))
+    def produce(self, count: int, seed: int | None = None, tier: str | None = None,
+                situation: dict | None = None, run: bool = True) -> list[str]:
+        situations = [situation] if situation else \
+            pick_situations(self.cfg, self.store, count, seed, kpi_weights(self.store))
         day = dt.date.today().strftime("%Y%m%d")
         existing = {e["id"] for e in self.store.list()}
         ids = []
@@ -72,10 +102,12 @@ class Pipeline:
             eid = f"{day}-{n:02d}-{sit['id']}"
             existing.add(eid)
             self.store.create(eid, sit["id"])
+            self.store.update(eid, info={"tier": tier or self.base.get("production.default_tier", "final")})
             save_json(sit, self.epdir(eid) / "situation.json")
             ids.append(eid)
-        for eid in ids:
-            self.run(eid)
+        if run:
+            for eid in ids:
+                self.run(eid)
         return ids
 
     def resume(self) -> list[str]:
@@ -90,7 +122,9 @@ class Pipeline:
 
     def run(self, episode_id: str) -> str:
         ep = self.store.get(episode_id)
+        tier = self._use_tier(episode_id)
         self.store.update(episode_id, status="running")
+        log.info("[%s] niveau de production : %s", episode_id, tier)
         t0 = time.time()
         try:
             self._premise(episode_id)
@@ -101,6 +135,7 @@ class Pipeline:
                 self._render(episode_id, lang)
                 self._edit(episode_id, lang)
                 self._package(episode_id, lang)
+            self._direct(episode_id)
             status = self._qa_and_review(episode_id)
         except Exception as e:  # noqa: BLE001 - on journalise toute panne d'étape
             log.exception("épisode %s en échec", episode_id)
@@ -109,7 +144,8 @@ class Pipeline:
                                     "retries": (ep or {}).get("info", {}).get("retries", 0) + 1})
             self.store.log(episode_id, "failed", {"error": str(e)[:2000]})
             return "failed"
-        self.store.log(episode_id, "produced", {"seconds": round(time.time() - t0, 1), "status": status})
+        self.store.log(episode_id, "produced", {"seconds": round(time.time() - t0, 1), "status": status,
+                                                "tier": tier})
         if status == "approved":
             self.publish(episode_id)
         return status
@@ -158,7 +194,8 @@ class Pipeline:
         for ln in script.lines:
             ln.visemes = lips.visemes(Path(ln.audio), ln.text, ln.envelope, fps)
         save_json(script, d / "script_timed.json")
-        self._done(eid, f"voice_{lang}", **{f"duration_{lang}": round(total, 2)})
+        self._done(eid, f"voice_{lang}", **{f"duration_{lang}": round(total, 2),
+                                            f"tts_signature_{lang}": self.tts_signature()})
 
     def _subs(self, eid: str, lang: str) -> None:
         if self._stage(eid, f"subs_{lang}"):
@@ -233,7 +270,7 @@ class Pipeline:
         self._done(eid, f"edit_{lang}", deliverables=deliverables)
 
     def _package(self, eid: str, lang: str) -> None:
-        if self._stage(eid, f"package_{lang}"):
+        if self._stage(eid, f"package_{lang}") or not self.cfg.get("package.enabled", True):
             return
         d = self.epdir(eid) / lang
         script = Script.from_dict(load_json(d / "script_timed.json"))
@@ -247,13 +284,130 @@ class Pipeline:
                 it["title"] = pkg["youtube"]["title"] if it["kind"] == "episode" else it["title"]
         self._done(eid, f"package_{lang}", deliverables=deliverables)
 
+    # ------------------------------------------------------------------ réalisateur automatique
+    def _bibles(self) -> dict[str, str]:
+        sr = Showrunner(self.cfg, self.llm, load_lessons(self.cfg))
+        return {lang: sr._bible(lang) for lang in self.cfg.languages}
+
+    def _direct(self, eid: str) -> None:
+        if not self.cfg.get("director.enabled", True) or self._stage(eid, "director"):
+            return
+        rounds = int(self.cfg.get("director.max_rounds", 2))
+        history, applied, unresolved = [], set(), []
+
+        def key(f):
+            return (f["action"], f["lang"], f.get("line"), f.get("scene"))
+
+        for r in range(rounds + 1):
+            rep = director.review(self.cfg, self.llm, self.epdir(eid), self._bibles())
+            history.append({"round": r, "scores": rep["scores"], "fixes": rep["fixes"]})
+            # pas d'acharnement : une correction déjà tentée qui revient est laissée à l'humain
+            fresh = [f for f in rep["fixes"] if key(f) not in applied]
+            unresolved = [f for f in rep["fixes"] if key(f) in applied]
+            rep["unresolved"] = unresolved
+            save_json(rep, self.epdir(eid) / "director_report.json")
+            if not fresh or r == rounds:
+                break
+            log.info("[%s] réalisateur : %d correction(s) ciblée(s)", eid, len(fresh))
+            self.apply_fixes(eid, fresh, by="réalisateur")
+            applied |= {key(f) for f in fresh}
+            for lang in self.cfg.languages:  # on ne refait que ce qui a été invalidé
+                self._voice(eid, lang)
+                self._subs(eid, lang)
+                self._render(eid, lang)
+                self._edit(eid, lang)
+                self._package(eid, lang)
+        self._done(eid, "director", director={"scores": rep["scores"], "verdict": rep["verdict"],
+                                              "unresolved": unresolved,
+                                              "notes": {l: rep["languages"][l]["notes"] for l in rep["languages"]},
+                                              "rounds": history})
+
+    DOWNSTREAM = {"voice": ["voice", "subs", "render", "edit", "package"], "render": ["render", "edit", "package"],
+                  "package": ["package"]}
+
+    def _invalidate(self, eid: str, lang: str, frm: str) -> None:
+        ep = self.store.get(eid)
+        drop = {f"{s}_{lang}" for s in self.DOWNSTREAM[frm]} | {"director", "qa"}
+        self.store.reset_stages(eid, [s for s in ep["stages"] if s not in drop])
+
+    def _scene_of_line(self, script: Script, idx: int) -> str:
+        n = 0
+        for sc in script.scenes:
+            if idx < n + len(sc.lines):
+                return sc.id
+            n += len(sc.lines)
+        return script.scenes[-1].id
+
+    def apply_fixes(self, eid: str, fixes: list[dict], by: str = "humain") -> list[dict]:
+        """Corrections CIBLÉES : seules les ressources concernées sont supprimées puis recalculées."""
+        done = []
+        for f in fixes:
+            lang = f["lang"]
+            d = self.epdir(eid) / lang
+            act = f["action"]
+            if act in ("regen_voice", "rewrite_line"):
+                script = Script.from_dict(load_json(d / "script.json"))
+                i = int(f["line"])
+                if act == "rewrite_line":
+                    old = script.lines[i].text
+                    script.lines[i].text = director.rewrite_line(self.llm, script, i, f.get("instruction", ""),
+                                                                 self._bibles().get(lang, ""))
+                    save_json(script, d / "script.json")
+                    f = {**f, "before": old, "after": script.lines[i].text}
+                for wav in (d / "audio").glob(f"{i:04d}_*.wav"):
+                    wav.unlink()
+                (d / "render" / f"{self._scene_of_line(script, i)}.mp4").unlink(missing_ok=True)
+                self._invalidate(eid, lang, "voice")
+            elif act == "rerender_scene":
+                (d / "render" / f"{f['scene']}.mp4").unlink(missing_ok=True)
+                self._invalidate(eid, lang, "render")
+            elif act == "regen_package":
+                shutil.rmtree(self.epdir(eid) / "package" / lang, ignore_errors=True)
+                self._invalidate(eid, lang, "package")
+            else:
+                raise ValueError(f"correction inconnue : {act}")
+            done.append(f)
+            self.store.log(eid, "fix", {**f, "by": by})
+        return done
+
+    # ------------------------------------------------------------------ promotion de niveau
+    def promote(self, eid: str, tier: str) -> str:
+        """Brouillon → validation → final : garde le texte, recalcule le reste (voix gardées si
+        le moteur vocal est identique)."""
+        old = self.tier_of(eid)
+        tiers = list((self.base.get("production.tiers") or {}).keys())
+        if tier not in tiers:
+            raise KeyError(tier)
+        ep = self.store.get(eid)
+        self.cfg = self.base.tier(tier)
+        keep = ["premise"] + [f"script_{l}" for l in self.cfg.languages]
+        for lang in self.cfg.languages:
+            d = self.epdir(eid) / lang
+            same_voice = ep["info"].get(f"tts_signature_{lang}") == self.tts_signature()
+            if same_voice:
+                keep += [f"voice_{lang}", f"subs_{lang}"]
+            else:
+                shutil.rmtree(d / "audio", ignore_errors=True)
+            shutil.rmtree(d / "render", ignore_errors=True)
+            for mp4 in d.glob("*.mp4"):
+                mp4.unlink()
+            shutil.rmtree(self.epdir(eid) / "package" / lang, ignore_errors=True)
+        self.store.reset_stages(eid, [s for s in ep["stages"] if s in keep])
+        self.store.update(eid, status="queued", info={"tier": tier, "deliverables": [],
+                                                      "tier_history": ep["info"].get("tier_history", []) + [old]})
+        self.store.log(eid, "promote", {"from": old, "to": tier})
+        return tier
+
     def _qa_and_review(self, eid: str) -> str:
         scripts = {l: Script.from_dict(load_json(self.epdir(eid) / l / "script_timed.json"))
                    for l in self.cfg.languages}
         finals = {l: self.epdir(eid) / l / f"{eid}_{l}.mp4" for l in self.cfg.languages}
         report = qa.evaluate(self.cfg, self.llm, scripts, finals)
         qa.save(report, self.epdir(eid) / "qa_report.json")
-        status = "review" if report["needs_human"] else "approved"
+        # Seul le niveau final peut être publié ; les niveaux inférieurs attendent une décision
+        # (corriger / passer au niveau suivant).
+        is_final = self.tier_of(eid) == list((self.base.get("production.tiers") or {"final": 0}).keys())[-1]
+        status = "review" if (report["needs_human"] or not is_final) else "approved"
         self.store.update(eid, status=status, risk=report["risk"], stage_done="qa",
                           info={"qa": {"risk": report["risk"], "checks": report["checks"],
                                        "content": report["content"]}})

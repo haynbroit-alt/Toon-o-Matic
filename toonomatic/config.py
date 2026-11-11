@@ -46,6 +46,19 @@ class Config:
         p = Path(p)
         return p if p.is_absolute() else self.root / p
 
+    def derive(self, overrides: dict | None) -> "Config":
+        """Copie de la config avec surcharges (ex. réglages d'un niveau de production)."""
+        return Config(data=_deep_merge(self.data, overrides or {}), cast=self.cast, root=self.root,
+                      series=self.series, style=self.style, series_dir=self.series_dir)
+
+    def tier(self, name: str) -> "Config":
+        tiers = (self.data.get("production") or {}).get("tiers") or {}
+        if name not in tiers:
+            raise KeyError(f"niveau de production inconnu : {name} (connus : {', '.join(tiers)})")
+        c = self.derive(tiers[name].get("overrides"))
+        c.data["_tier"] = name
+        return c
+
     @property
     def workdir(self) -> Path:
         return self.path(self.data["workdir"])

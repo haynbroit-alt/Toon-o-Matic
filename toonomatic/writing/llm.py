@@ -149,6 +149,11 @@ class MockLLM:
         if task == "translate":
             prefix = "[EN] " if ctx["target"] == "en" else "[FR] "
             return {"lines": [prefix + t for t in ctx["lines"]]}
+        if task == "director_review":
+            return {"histoire": 7, "personnages": 8, "notes": "mock : rythme correct, chute à renforcer.",
+                    "fixes": []}
+        if task == "rewrite_line":
+            return {"text": ctx.get("text", "") + (" [rire]" if ctx.get("lang") == "fr" else " [laughs]")}
         if task == "continuity":
             chars = ctx.get("characters") or ["momo"]
             return {"facts": [{"fact": f"{chars[0]} a juré de ne plus jamais parler de « {ctx['logline'][:40]} ».",

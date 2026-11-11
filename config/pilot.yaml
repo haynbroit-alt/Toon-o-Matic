@@ -1,0 +1,10 @@
+# PILOTE V1 : 1 série, 3 personnages, 1 décor, 2 minutes, FR + EN, aucun GPU payant.
+#   toonomatic -c config/pilot.yaml produce --count 1 --tier draft
+episode:
+  target_minutes: 2
+  min_minutes: 1.6
+  max_minutes: 2.6
+  minutes_per_scene: 0.5      # 4 scènes courtes
+  allowed_sets: [rue]
+cadence: {episodes_per_day: 1}
+studio: {cpu_launcher: inline, gpu_launcher: none}

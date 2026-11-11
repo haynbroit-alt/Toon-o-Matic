@@ -24,6 +24,11 @@ def cfg(tmp_path):
         "editing": {"cutdown": {"resolution": [180, 320], "max_seconds": 10}},
         "learning": {"lessons_file": str(lessons)},
         "llm": {"provider": "mock"}, "tts": {"provider": "mock", "sample_rate": 16000},
+        "vault": {"backend": "local", "path": str(tmp_path / "vault")},
+        "production": {"default_tier": "final", "tiers": {
+            "draft": {"overrides": {"animation": {"resolution": [256, 144]}}},
+            "validation": {"overrides": {"animation": {"renderer": "preview", "resolution": [320, 180]}}},
+            "final": {"overrides": {"animation": {"renderer": "preview"}}}}},
     })
 
 

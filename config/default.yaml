@@ -6,6 +6,63 @@ series: series/les-voisins   # dossier de la série active (bible, distribution,
 workdir: runs                 # un dossier par épisode : runs/<episode_id>/
 database: runs/toonomatic.sqlite
 
+state:
+  backend: sqlite             # sqlite (une machine) | vault (cloud : l'état vit dans le VAULT)
+
+vault:                        # mémoire permanente : séries, personnages, épisodes, file d'attente
+  backend: local              # local | s3 (Cloudflare R2, AWS S3, MinIO, Backblaze B2…)
+  path: vault
+  s3:
+    bucket: toonomatic
+    endpoint_url: ""          # R2 : https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    region: auto
+    access_key_env: VAULT_ACCESS_KEY_ID
+    secret_key_env: VAULT_SECRET_ACCESS_KEY
+
+# Trois niveaux : on ne paie le rendu final que pour une histoire déjà validée.
+production:
+  default_tier: draft
+  tiers:
+    draft:                    # BROUILLON : histoire, rythme, gags — coût quasi nul, CPU seulement
+      gpu: false
+      overrides:
+        tts: {provider: piper, fallback: mock}
+        lipsync: {provider: envelope}
+        animation: {renderer: preview, resolution: [854, 480]}
+        editing: {cutdown: {enabled: false}}
+        package: {enabled: false}
+    validation:               # VALIDATION : vraies voix, personnages et mouvements en 3D basse définition
+      gpu: false
+      overrides:
+        animation:
+          renderer: blender
+          resolution: [960, 540]
+          blender: {engine: CYCLES, samples: 4, animate_on_twos: true, parallel_jobs: 2}
+        package: {enabled: false}
+    final:                    # FINAL : rendu HD sur GPU à la demande, kit de publication
+      gpu: true
+      overrides:
+        animation: {renderer: blender}
+
+package:
+  enabled: true
+
+command:                      # serveur de commande (téléphone)
+  token_env: TOONOMATIC_TOKEN # obligatoire dès que le serveur est public
+
+studio:                       # machines de production, lancées à la demande
+  cpu_launcher: inline        # inline (thread sur le serveur) | command | webhook | none
+  gpu_launcher: none          # none = ne JAMAIS louer de GPU tant que ce n'est pas configuré
+  cpu_command: ""
+  gpu_command: ""             # ex. "ssh gpu-box 'cd toonomatic && toonomatic -c config/cloud.yaml worker --gpu'"
+  webhook: {url: "", token_env: STUDIO_WEBHOOK_TOKEN}
+
+director:                     # réalisateur automatique : relit, note, corrige de façon ciblée
+  enabled: true
+  max_rounds: 2               # passes de correction automatique avant la revue humaine
+  min_score: 6                # note /10 sous laquelle un critère déclenche une correction
+  max_chars_per_second: 19    # débit au-delà duquel une réplique devient incompréhensible
+
 cadence:
   episodes_per_day: 2         # 1 à 4
   timezone: Europe/Paris
@@ -52,6 +109,9 @@ tts:
     device: cuda
   bark:
     device: cuda
+  piper:                      # voix « brouillon » : très rapide sur CPU, gratuite (rhasspy/piper)
+    executable: piper
+    models: {fr: assets/piper/fr_FR-siwis-medium.onnx, en: assets/piper/en_GB-alan-medium.onnx}
   chatterbox:
     device: cuda
     cfg_weight: 0.4           # plus bas = débit plus lent et posé
