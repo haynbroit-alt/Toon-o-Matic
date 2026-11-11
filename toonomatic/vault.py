@@ -117,10 +117,16 @@ class S3Vault:
             raise VaultError("pip install 'toonomatic[cloud]' (boto3)") from e
         self.bucket = cfg["bucket"]
         self.prefix = cfg.get("prefix", "").strip("/")
+        from botocore.config import Config as BotoConfig  # type: ignore
+        try:  # les sommes de contrôle ajoutées par défaut par les versions récentes gênent certains stockages S3
+            bc = BotoConfig(signature_version="s3v4", request_checksum_calculation="when_required",
+                            response_checksum_validation="when_required")
+        except TypeError:  # botocore plus ancien
+            bc = BotoConfig(signature_version="s3v4")
         self.s3 = boto3.client(
-            "s3", endpoint_url=cfg.get("endpoint_url") or None, region_name=cfg.get("region", "auto"),
-            aws_access_key_id=os.environ.get(cfg.get("access_key_env", "VAULT_ACCESS_KEY_ID")),
-            aws_secret_access_key=os.environ.get(cfg.get("secret_key_env", "VAULT_SECRET_ACCESS_KEY")))
+            "s3", endpoint_url=cfg.get("endpoint_url") or None, region_name=cfg.get("region", "auto"), config=bc,
+            aws_access_key_id=(os.environ.get(cfg.get("access_key_env", "VAULT_ACCESS_KEY_ID")) or "").strip(),
+            aws_secret_access_key=(os.environ.get(cfg.get("secret_key_env", "VAULT_SECRET_ACCESS_KEY")) or "").strip())
 
     def _k(self, key: str) -> str:
         return f"{self.prefix}/{key}" if self.prefix else key
@@ -167,13 +173,25 @@ class S3Vault:
                                               ExpiresIn=expires)
 
 
+def s3_settings(cfg: dict) -> dict:
+    """Réglages S3 effectifs : les variables d'environnement priment sur le fichier de configuration
+    (VAULT_ENDPOINT_URL, VAULT_BUCKET), pour tout régler depuis le tableau de bord de l'hébergeur."""
+    s3 = dict(cfg.get("s3", {}) or {})
+    ep = (os.environ.get("VAULT_ENDPOINT_URL") or "").strip().rstrip("/")
+    if ep:
+        s3["endpoint_url"] = ep if ep.startswith("http") else "https://" + ep
+    if (os.environ.get("VAULT_BUCKET") or "").strip():
+        s3["bucket"] = os.environ["VAULT_BUCKET"].strip()
+    return s3
+
+
 def s3_problem(cfg: dict) -> str | None:
     """Pourquoi le stockage S3/R2 n'est pas utilisable (ou None s'il semble configuré)."""
-    s3 = cfg.get("s3", {}) or {}
+    s3 = s3_settings(cfg)
     if not s3.get("bucket"):
-        return "nom de bucket absent (vault.s3.bucket)"
+        return "nom de bucket absent (variable VAULT_BUCKET)"
     if "YOUR_ACCOUNT_ID" in (s3.get("endpoint_url") or ""):
-        return "adresse R2 non renseignée (vault.s3.endpoint_url)"
+        return "adresse R2 non renseignée (variable VAULT_ENDPOINT_URL)"
     for k in ("access_key_env", "secret_key_env"):
         env = s3.get(k, "VAULT_ACCESS_KEY_ID" if k == "access_key_env" else "VAULT_SECRET_ACCESS_KEY")
         if not os.environ.get(env):
@@ -186,7 +204,7 @@ def make_vault(cfg: dict, root: Path) -> Vault:
     if kind == "s3":
         why = s3_problem(cfg)
         if why is None:
-            return S3Vault(cfg.get("s3", {}))
+            return S3Vault(s3_settings(cfg))
         if not cfg.get("fallback_local"):
             raise VaultError(f"stockage S3/R2 inutilisable : {why}")
         import logging

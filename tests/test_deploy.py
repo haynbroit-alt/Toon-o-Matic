@@ -66,3 +66,18 @@ def test_vault_and_llm_fallbacks(tmp_path, monkeypatch):
         assert "VAULT_ACCESS_KEY_ID" in str(e)
     assert isinstance(make_vault({**s3, "fallback_local": True}, tmp_path), LocalVault)
     assert isinstance(make_llm({"provider": "claude", "fallback": "mock"}), MockLLM)
+
+
+def test_r2_configurable_from_environment(monkeypatch):
+    from toonomatic.vault import s3_problem, s3_settings
+    cfg = {"backend": "s3", "s3": {"bucket": "toonomatic", "endpoint_url": "https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com"}}
+    for k in ("VAULT_ENDPOINT_URL", "VAULT_BUCKET", "VAULT_ACCESS_KEY_ID", "VAULT_SECRET_ACCESS_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    assert "VAULT_ENDPOINT_URL" in s3_problem(cfg)
+    monkeypatch.setenv("VAULT_ENDPOINT_URL", " abc123.r2.cloudflarestorage.com/ ")
+    monkeypatch.setenv("VAULT_BUCKET", "mon-studio")
+    assert s3_settings(cfg) == {"bucket": "mon-studio", "endpoint_url": "https://abc123.r2.cloudflarestorage.com"}
+    assert "VAULT_ACCESS_KEY_ID" in s3_problem(cfg)
+    monkeypatch.setenv("VAULT_ACCESS_KEY_ID", "a")
+    monkeypatch.setenv("VAULT_SECRET_ACCESS_KEY", "b")
+    assert s3_problem(cfg) is None
