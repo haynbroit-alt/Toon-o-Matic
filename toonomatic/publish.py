@@ -15,7 +15,8 @@ class PublishError(RuntimeError):
     pass
 
 
-def _youtube(cfg: Config, video: Path, title: str, description: str, lang: str, short: bool) -> str:
+def _youtube(cfg: Config, video: Path, title: str, description: str, lang: str, short: bool,
+             thumb: str | None = None) -> str:
     try:  # pragma: no cover - réseau
         from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
         from googleapiclient.discovery import build  # type: ignore
@@ -35,6 +36,8 @@ def _youtube(cfg: Config, video: Path, title: str, description: str, lang: str, 
     resp = None
     while resp is None:
         _, resp = req.next_chunk()
+    if thumb and Path(thumb).exists():
+        yt.thumbnails().set(videoId=resp["id"], media_body=MediaFileUpload(str(thumb))).execute()
     return f"https://youtu.be/{resp['id']}"
 
 
@@ -58,7 +61,7 @@ def publish(cfg: Config, episode_dir: Path, manifest: dict) -> dict:
                 out.append(str(dest))
             elif target == "youtube":
                 out.append(_youtube(cfg, Path(item["video"]), item["title"], item["description"],
-                                    item["lang"], item["kind"] == "short"))
+                                    item["lang"], item["kind"] == "short", item.get("thumbnail")))
             else:
                 # TikTok (Content Posting API) et Instagram (Graph API, Reels) exigent une app validée :
                 # brancher ici un connecteur (n8n, Zapier/Make, Metricool...) une fois les accès obtenus.

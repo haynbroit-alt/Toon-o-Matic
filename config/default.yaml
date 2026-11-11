@@ -2,6 +2,7 @@
 # Chaque bloc a un "provider" interchangeable. "mock" = fonctionne sans GPU ni clé API
 # (utile pour tester la chaîne complète en CI ou sur un laptop).
 
+series: series/les-voisins   # dossier de la série active (bible, distribution, mémoire)
 workdir: runs                 # un dossier par épisode : runs/<episode_id>/
 database: runs/toonomatic.sqlite
 
@@ -44,16 +45,27 @@ llm:
     timeout_s: 600
 
 tts:
-  provider: mock              # mock | xtts | bark | elevenlabs
+  provider: mock              # mock | chatterbox | xtts | bark | http | elevenlabs
   sample_rate: 48000
   xtts:
     model: tts_models/multilingual/multi-dataset/xtts_v2
     device: cuda
   bark:
     device: cuda
+  chatterbox:
+    device: cuda
+    cfg_weight: 0.4           # plus bas = débit plus lent et posé
+  http:                       # serveur auto-hébergé (Fish Speech, F5-TTS, CosyVoice, Zonos…)
+    url: ""
+    json: {text: "{text}", reference_audio: "{ref}", language: "{lang}"}
+    response: audio
   elevenlabs:
     model_id: eleven_multilingual_v2
     api_key_env: ELEVENLABS_API_KEY
+
+lipsync:
+  provider: auto              # auto | rhubarb | envelope
+  rhubarb_path: rhubarb       # https://github.com/DanielSWolf/rhubarb-lip-sync (binaire)
 
 animation:
   renderer: preview           # preview (animatique FFmpeg, sans Blender) | blender

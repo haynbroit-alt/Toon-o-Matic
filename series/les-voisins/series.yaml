@@ -1,0 +1,29 @@
+# BIBLE DE SÉRIE — l'identité qui reste stable d'un épisode à l'autre.
+# Tout ce qui est ici est injecté dans les prompts d'écriture et pilote le rendu.
+slug: les-voisins
+title: {fr: "Les Voisins du 3e", en: "The Third Floor"}
+logline:
+  fr: "Dans un immeuble de quartier, trois voisins transforment chaque petit tracas en catastrophe collective."
+  en: "In a tired apartment block, three neighbours turn every minor hassle into a shared disaster."
+universe: >
+  Un quartier populaire imaginaire, coloré et un peu décrépit : l'immeuble, la rue commerçante,
+  l'épicerie de nuit, le garage du tonton. Le monde est réaliste mais tout y est légèrement exagéré
+  (formes rondes, couleurs saturées, objets un peu trop grands).
+tone:
+  fr: "Comédie de situation absurde, tendre sous la vanne. Personne n'est méchant, tout le monde est de mauvaise foi."
+  en: "Absurd sitcom, warm under the sarcasm. Nobody is evil; everybody is in denial."
+rules:                        # règles de continuité intangibles
+  - "Momo n'a jamais réussi à garer son scooter correctement."
+  - "Lina finit toujours par réparer ce que les autres ont cassé, en soupirant."
+  - "Le tonton « connaît quelqu'un » — et ce quelqu'un n'apparaît jamais à l'écran."
+  - "Aucune personne réelle, marque réelle ou actualité politique ne doit apparaître."
+style: toon                   # préréglage dans styles/<nom>.yaml
+style_overrides: {}           # ex. {palette: {key_light: "#ffd9a8"}}
+music:
+  theme: assets/music/theme_loop.mp3
+episode_format:
+  cold_open: true             # gag d'ouverture avant le générique
+  title_card_seconds: 3
+memory:
+  continuity_file: memory/continuity.jsonl   # faits établis par les épisodes publiés
+  max_facts_in_prompt: 25

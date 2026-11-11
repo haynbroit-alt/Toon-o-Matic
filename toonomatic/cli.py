@@ -13,6 +13,7 @@ from .config import load_config
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="toonomatic", description="Usine de web-séries animées 3D FR/EN")
     p.add_argument("-c", "--config", help="fichier YAML qui surcharge config/default.yaml")
+    p.add_argument("-s", "--series", help="dossier de série (défaut : config `series`)")
     p.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -39,6 +40,11 @@ def main(argv: list[str] | None = None) -> int:
 
     s = sub.add_parser("publish", help="publier un épisode validé")
     s.add_argument("episode_id")
+    s = sub.add_parser("series-new", help="créer une nouvelle série (bible, distribution, mémoire)")
+    s.add_argument("slug")
+    s.add_argument("--from", dest="template", default="series/les-voisins", help="série modèle")
+    s = sub.add_parser("series-memory", help="afficher la mémoire de continuité de la série")
+
     s = sub.add_parser("kpi-import", help="importer des KPI (CSV) pour l'apprentissage")
     s.add_argument("csv")
 
@@ -49,6 +55,10 @@ def main(argv: list[str] | None = None) -> int:
     if getattr(a, "minutes", None):
         m = a.minutes
         overrides = {"episode": {"target_minutes": m, "min_minutes": m * 0.85, "max_minutes": m * 1.25}}
+    if a.series:
+        overrides["series"] = a.series
+    if a.cmd == "series-new":
+        return _series_new(a.slug, a.template)
     cfg = load_config(a.config, overrides)
 
     from .pipeline import Pipeline
@@ -91,9 +101,37 @@ def main(argv: list[str] | None = None) -> int:
         while True:
             offset = tg.poll(cfg, store, offset)
             time.sleep(a.interval)
+    elif a.cmd == "series-memory":
+        from .continuity import aired, load_facts
+        for e in aired(cfg, 1000):
+            print(f"📺 {e['episode']}  {e['title']}")
+        for f in load_facts(cfg, 10_000):
+            print(f"• [{f['kind']}] {f['fact']}  ({f['episode']})")
     elif a.cmd == "kpi-import":
         from .learning import import_kpis
         print(f"{import_kpis(store, a.csv)} lignes importées")
+    return 0
+
+
+def _series_new(slug: str, template: str) -> int:
+    import re
+    import shutil
+
+    from .config import ROOT
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,40}", slug):
+        print("slug invalide (minuscules, chiffres, tirets)")
+        return 2
+    src, dst = ROOT / template, ROOT / "series" / slug
+    if dst.exists():
+        print(f"{dst} existe déjà")
+        return 2
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.jsonl"))
+    (dst / "memory").mkdir(exist_ok=True)
+    (dst / "memory" / "continuity.jsonl").touch()
+    sy = (dst / "series.yaml").read_text(encoding="utf-8")
+    (dst / "series.yaml").write_text(re.sub(r"(?m)^slug: .*$", f"slug: {slug}", sy), encoding="utf-8")
+    print(f"Série créée : {dst}\n→ éditez series.yaml (univers, ton, règles) et cast.yaml (personnages),\n"
+          f"  puis : toonomatic -s series/{slug} produce --count 1")
     return 0
 
 

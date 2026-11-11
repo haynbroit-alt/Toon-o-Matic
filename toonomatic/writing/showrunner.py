@@ -84,14 +84,38 @@ class Showrunner:
 
     # ----------------------------------------------------------------- bible commune
     def _bible(self, lang: str | None = None) -> str:
-        chars = "\n".join(
-            f"- {k} ({v['display']}): {v.get('bio_' + (lang or 'fr'), v.get('bio_fr', ''))}"
-            for k, v in self.cast["characters"].items())
+        from ..continuity import aired, load_facts
+        L = lang or "fr"
+        ser = self.cfg.series or {}
+
+        def loc(v):
+            return v.get(L, next(iter(v.values()), "")) if isinstance(v, dict) else (v or "")
+
+        chars = []
+        for k, v in self.cast["characters"].items():
+            bits = [f"- {k} ({v['display']}): {v.get('bio_' + L, v.get('bio_fr', ''))}"]
+            if v.get("personality"):
+                bits.append(f"  traits: {', '.join(v['personality'])}")
+            if v.get("catchphrases"):
+                bits.append(f"  répliques fétiches (avec parcimonie): {' / '.join(loc(v['catchphrases']) or [])}")
+            if v.get("look"):
+                bits.append(f"  apparence: {v['look']}")
+            chars.append("\n".join(bits))
         sets = ", ".join(self.cast["sets"].keys())
         acts = ", ".join(f"{k} = {v}" for k, v in self.cast["actions"].items())
         lessons = "\n".join(f"- {x}" for x in self.lessons[-self.cfg.get("learning.max_lessons_in_prompt", 15):])
-        return (f"PERSONNAGES:\n{chars}\n\nDÉCORS DISPONIBLES: {sets}\n\nACTIONS ANIMÉES: {acts}\n"
-                f"ÉMOTIONS: {', '.join(self.emotions)}\n"
+        facts = "\n".join(f"- {f['fact']}" for f in load_facts(self.cfg))
+        past = "\n".join(f"- {e['title']}: {e['logline']}" for e in aired(self.cfg))
+        rules = "\n".join(f"- {r}" for r in ser.get("rules", []))
+        head = ""
+        if ser:
+            head = (f"SÉRIE : {loc(ser.get('title', {}))}\nPITCH : {loc(ser.get('logline', {}))}\n"
+                    f"UNIVERS : {ser.get('universe', '').strip()}\nTON : {loc(ser.get('tone', {}))}\n"
+                    + (f"RÈGLES DE CONTINUITÉ (intangibles) :\n{rules}\n" if rules else "") + "\n")
+        return (head + f"PERSONNAGES:\n" + "\n".join(chars) + f"\n\nDÉCORS DISPONIBLES: {sets}\n\n"
+                f"ACTIONS ANIMÉES: {acts}\nÉMOTIONS: {', '.join(self.emotions)}\n"
+                + (f"\nCE QUE LA SÉRIE A DÉJÀ ÉTABLI (à respecter, à réutiliser en clin d'œil):\n{facts}\n" if facts else "")
+                + (f"\nÉPISODES DÉJÀ DIFFUSÉS (ne pas refaire la même intrigue):\n{past}\n" if past else "")
                 + (f"\nLEÇONS DES ÉPISODES PRÉCÉDENTS (à respecter):\n{lessons}\n" if lessons else ""))
 
     def _showrunner_prompt(self, lang: str) -> str:

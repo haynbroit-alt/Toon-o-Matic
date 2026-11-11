@@ -149,6 +149,19 @@ class MockLLM:
         if task == "translate":
             prefix = "[EN] " if ctx["target"] == "en" else "[FR] "
             return {"lines": [prefix + t for t in ctx["lines"]]}
+        if task == "continuity":
+            chars = ctx.get("characters") or ["momo"]
+            return {"facts": [{"fact": f"{chars[0]} a juré de ne plus jamais parler de « {ctx['logline'][:40]} ».",
+                               "characters": chars[:1], "kind": "running_gag"}]}
+        if task == "metadata":
+            fr = ctx.get("lang") == "fr"
+            t = ctx.get("title", "Épisode")
+            return {"youtube_title": t[:90], "youtube_description": ctx.get("logline", ""),
+                    "tags": ["animation", "humour" if fr else "comedy", "3D", "webserie" if fr else "cartoon"],
+                    "tiktok_caption": (t + " 😂")[:150],
+                    "hashtags": ["#animation", "#humour" if fr else "#comedy", "#3danimation"],
+                    "thumbnail_text": t.split(":")[-1].strip()[:28] or t[:28],
+                    "chapters": [("Partie " if fr else "Part ") + str(i + 1) for i in range(20)]}
         if task == "content_review":
             return {"risk": 0.1, "issues": [], "notes": "mock: aucun problème détecté"}
         raise LLMError(f"MockLLM: tâche inconnue {task}")

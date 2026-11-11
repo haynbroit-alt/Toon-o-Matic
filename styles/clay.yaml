@@ -1,0 +1,10 @@
+# Aspect pâte à modeler / stop-motion : matières mates, animation en 2 recommandée.
+name: clay
+shading: clay
+outline: {enabled: false, thickness: 0, color: "#000000"}
+palette: {background: "#d9c7a7", key_light: "#fff4e0", fill_light: "#c8d6e8"}
+lighting: {key_energy: 3.0, fill_energy: 300, rim_energy: 150}
+camera: {lens_wide: 35, lens_two: 50, lens_close: 85, dof: true, f_stop: 1.8}
+color: {view_transform: AgX, look: None, exposure: 0.0}
+render: {samples: 24, motion_blur: false}
+acting: {blink_every_s: [3.0, 6.0], breathing: 0.01, look_at_speaker: true, gesture_variants: true, anticipation_frames: 2}

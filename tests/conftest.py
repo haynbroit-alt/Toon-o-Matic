@@ -12,7 +12,11 @@ ROOT = Path(__file__).resolve().parent.parent
 def cfg(tmp_path):
     lessons = tmp_path / "lessons.md"
     lessons.write_text("# Leçons\n\n", encoding="utf-8")
+    series = tmp_path / "series"
+    shutil.copytree(ROOT / "series" / "les-voisins", series)
+    (series / "memory" / "continuity.jsonl").write_text("", encoding="utf-8")
     return load_config(overrides={
+        "series": str(series),
         "workdir": str(tmp_path / "runs"),
         "database": str(tmp_path / "runs" / "db.sqlite"),
         "episode": {"target_minutes": 0.5, "min_minutes": 0.3, "max_minutes": 0.7},

@@ -27,6 +27,9 @@ class Config:
     data: dict[str, Any]
     cast: dict[str, Any]
     root: Path = field(default=ROOT)
+    series: dict[str, Any] = field(default_factory=dict)
+    style: dict[str, Any] = field(default_factory=dict)
+    series_dir: Path | None = None
 
     def __getitem__(self, key: str) -> Any:
         return self.data[key]
@@ -65,6 +68,13 @@ def load_config(path: str | os.PathLike | None = None, overrides: dict | None = 
         if os.environ.get(env):
             base[sec][key] = os.environ[env]
     base = _deep_merge(base, overrides or {})
-    cast_path = Path(base.get("cast", ROOT / "config" / "cast.yaml"))
-    cast = yaml.safe_load(cast_path.read_text(encoding="utf-8"))
-    return Config(data=base, cast=cast, root=root)
+    # Une SÉRIE = un dossier autonome : bible (series.yaml), distribution (cast.yaml), mémoire.
+    sdir = Path(base.get("series", "series/les-voisins"))
+    sdir = sdir if sdir.is_absolute() else ROOT / sdir
+    cast = yaml.safe_load((sdir / "cast.yaml").read_text(encoding="utf-8"))
+    series = yaml.safe_load((sdir / "series.yaml").read_text(encoding="utf-8")) or {}
+    style_name = series.get("style", "toon")
+    style_path = ROOT / "styles" / f"{style_name}.yaml"
+    style = yaml.safe_load(style_path.read_text(encoding="utf-8")) if style_path.exists() else {}
+    style = _deep_merge(style, series.get("style_overrides") or {})
+    return Config(data=base, cast=cast, root=root, series=series, style=style, series_dir=sdir)

@@ -56,7 +56,9 @@ def build_shotlist(cfg: Config, script: Script, scene: Scene) -> dict:
                         "color": cast["characters"][c]["color"]} for i, c in enumerate(scene.characters)],
         "performances": [{"character": ln.character, "start": round(ln.start - scene.start, 3),
                           "end": round(ln.end - scene.start, 3), "action": ln.action,
-                          "emotion": ln.emotion, "envelope": ln.envelope} for ln in scene.lines],
+                          "emotion": ln.emotion, "envelope": ln.envelope, "visemes": ln.visemes}
+                         for ln in scene.lines],
+        "style": cfg.style,
         "shots": camera_plan(scene),
     }
 

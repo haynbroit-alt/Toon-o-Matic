@@ -1,0 +1,10 @@
+# Rendu 3D "long-métrage" doux : matières lisses, lumière enveloppante, profondeur de champ.
+name: soft3d
+shading: soft
+outline: {enabled: false, thickness: 0, color: "#000000"}
+palette: {background: "#f2d7b6", key_light: "#ffe7c4", fill_light: "#b9cdf5"}
+lighting: {key_energy: 4.0, fill_energy: 400, rim_energy: 600}
+camera: {lens_wide: 30, lens_two: 45, lens_close: 70, dof: true, f_stop: 2.0}
+color: {view_transform: AgX, look: None, exposure: 0.2}
+render: {samples: 32, motion_blur: true}
+acting: {blink_every_s: [2.5, 5.0], breathing: 0.02, look_at_speaker: true, gesture_variants: true, anticipation_frames: 4}

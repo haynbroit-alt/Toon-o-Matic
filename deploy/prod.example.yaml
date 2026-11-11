@@ -1,7 +1,7 @@
 # Copier en config/prod.yaml — surcharge de config/default.yaml pour la production
 cadence: {episodes_per_day: 4}
 llm: {provider: claude}          # ou ollama (100 % local)
-tts: {provider: xtts}            # ou bark / elevenlabs
+tts: {provider: chatterbox}      # ou xtts / bark / http (Fish Speech, F5-TTS…)
 animation:
   renderer: blender
   blender: {executable: /opt/blender/blender, parallel_jobs: 2, animate_on_twos: true}

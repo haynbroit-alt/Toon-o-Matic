@@ -3,7 +3,11 @@
 Tous les fournisseurs produisent un WAV mono 16 bits au taux `tts.sample_rate`.
 - xtts       : Coqui XTTS v2 (clonage de voix multilingue à partir d'un échantillon).
 - bark       : Suno Bark (rires, soupirs, hésitations très naturels).
-- elevenlabs : API cloud (qualité/émotion maximale, payant).
+- chatterbox : Resemble AI Chatterbox (open source, multilingue dont FR, clonage + curseur
+               d'« exagération » émotionnelle — idéal pour le jeu comique).
+- http       : n'importe quel serveur TTS auto-hébergé (Fish Speech / OpenAudio, F5-TTS,
+               CosyVoice, Zonos…) via un gabarit de requête configurable.
+- elevenlabs : API cloud (optionnelle, pour ne pas en dépendre).
 - mock       : "babillage" synthétique FFmpeg dont la durée suit la longueur du texte.
 """
 from __future__ import annotations
@@ -100,6 +104,84 @@ class BarkTTS:
         return out
 
 
+class ChatterboxTTS:
+    """Chatterbox multilingue. L'émotion pilote `exaggeration` (jeu plus ou moins appuyé)."""
+    EXAGGERATION = {"neutral": 0.45, "sarcastic": 0.55, "smug": 0.6, "happy": 0.7, "sad": 0.6,
+                    "scared": 0.8, "surprised": 0.85, "angry": 0.9}
+
+    def __init__(self, cfg: dict):
+        self.sr = int(cfg.get("sample_rate", 48000))
+        c = cfg.get("chatterbox", {})
+        try:
+            import torchaudio  # type: ignore
+            from chatterbox.mtl_tts import ChatterboxMultilingualTTS  # type: ignore
+        except ImportError as e:  # pragma: no cover
+            raise TTSError("pip install 'toonomatic[chatterbox]'") from e
+        self._ta = torchaudio
+        self.model = ChatterboxMultilingualTTS.from_pretrained(device=c.get("device", "cuda"))
+        self.cfg_weight = float(c.get("cfg_weight", 0.4))
+
+    def synthesize(self, text, lang, voice, emotion, out):  # pragma: no cover - GPU
+        ref = voice.get("chatterbox_ref")
+        if not ref or not Path(ref).exists():
+            raise TTSError(f"échantillon de voix Chatterbox manquant : {ref}")
+        wav = self.model.generate(strip_tags(text), language_id=lang, audio_prompt_path=ref,
+                                  exaggeration=self.EXAGGERATION.get(emotion, 0.5), cfg_weight=self.cfg_weight)
+        tmp = out.with_suffix(".raw.wav")
+        self._ta.save(str(tmp), wav, self.model.sr)
+        _to_wav(tmp, out, self.sr)
+        tmp.unlink(missing_ok=True)
+        return out
+
+
+class HttpTTS:
+    """Serveur TTS auto-hébergé générique. Exemple de config :
+
+        tts:
+          provider: http
+          http:
+            url: http://gpu-box:8080/v1/tts
+            json: {text: "{text}", reference_audio: "{ref}", language: "{lang}", emotion: "{emotion}"}
+            headers: {}
+            response: audio        # audio (octets WAV/MP3) | json_base64:<champ>
+    """
+
+    def __init__(self, cfg: dict):
+        self.sr = int(cfg.get("sample_rate", 48000))
+        self.c = cfg.get("http", {})
+        if not self.c.get("url"):
+            raise TTSError("tts.http.url manquant")
+
+    def _fill(self, obj, values):
+        if isinstance(obj, str):
+            return obj.format(**values)
+        if isinstance(obj, dict):
+            return {k: self._fill(v, values) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._fill(v, values) for v in obj]
+        return obj
+
+    def synthesize(self, text, lang, voice, emotion, out):
+        values = {"text": text, "clean_text": strip_tags(text), "lang": lang, "emotion": emotion,
+                  "ref": voice.get("http_ref") or voice.get("chatterbox_ref") or voice.get("xtts_speaker_wav", ""),
+                  "voice_id": voice.get("http_voice_id", "")}
+        r = requests.post(self.c["url"], json=self._fill(self.c.get("json", {"text": "{text}"}), values),
+                          headers=self.c.get("headers") or {}, timeout=int(self.c.get("timeout_s", 300)))
+        if r.status_code != 200:
+            raise TTSError(f"serveur TTS {r.status_code}: {r.text[:200]}")
+        mode = self.c.get("response", "audio")
+        if mode.startswith("json_base64:"):
+            import base64
+            payload = base64.b64decode(r.json()[mode.split(":", 1)[1]])
+        else:
+            payload = r.content
+        tmp = out.with_suffix(".download")
+        tmp.write_bytes(payload)
+        _to_wav(tmp, out, self.sr)
+        tmp.unlink(missing_ok=True)
+        return out
+
+
 class ElevenLabsTTS:
     URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     # réglages par émotion : plus de "style", moins de stabilité = jeu plus expressif
@@ -135,7 +217,8 @@ class ElevenLabsTTS:
 
 def make_tts(cfg: dict) -> TTS:
     p = cfg.get("provider", "mock")
-    cls = {"mock": MockTTS, "xtts": XTTS, "bark": BarkTTS, "elevenlabs": ElevenLabsTTS}.get(p)
+    cls = {"mock": MockTTS, "xtts": XTTS, "bark": BarkTTS, "chatterbox": ChatterboxTTS,
+           "http": HttpTTS, "elevenlabs": ElevenLabsTTS}.get(p)
     if not cls:
         raise TTSError(f"Fournisseur TTS inconnu: {p}")
     return cls(cfg)

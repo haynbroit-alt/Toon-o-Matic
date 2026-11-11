@@ -1,0 +1,22 @@
+# Cel-shading net à la "dessin animé 3D" : aplats, ombre franche, contour encré.
+name: toon
+shading: toon                 # toon | soft | clay
+toon:
+  steps: 3                    # nombre de paliers de lumière
+  shadow_tint: "#4b3f72"      # ombres colorées (jamais grises) : signature du style
+  rim: 0.35                   # liseré lumineux sur les bords
+outline: {enabled: true, thickness: 2.2, color: "#1a1423"}
+palette:
+  background: "#8fb8de"
+  key_light: "#fff1d6"
+  fill_light: "#9fb4ff"
+lighting: {key_energy: 3.5, fill_energy: 250, rim_energy: 400}
+camera: {lens_wide: 28, lens_two: 40, lens_close: 60, dof: false, f_stop: 2.8}
+color: {view_transform: Standard, look: None, exposure: 0.0}
+render: {samples: 16, motion_blur: false}
+acting:                       # "naturel" : micro-mouvements qui évitent l'effet mannequin
+  blink_every_s: [2.5, 5.5]
+  breathing: 0.015
+  look_at_speaker: true
+  gesture_variants: true      # alterne talk / talk.001 / talk.002… si présents dans le rig
+  anticipation_frames: 3

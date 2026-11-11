@@ -17,7 +17,8 @@ class Line:
     audio: str | None = None
     start: float = 0.0
     end: float = 0.0
-    envelope: list[float] = field(default_factory=list)  # amplitude par frame → lip-sync
+    envelope: list[float] = field(default_factory=list)  # amplitude par frame
+    visemes: list[dict] = field(default_factory=list)     # [{t, v}] → lip-sync par visèmes
 
 
 @dataclass

@@ -22,8 +22,11 @@ from .editing.subtitles import make_cues, write_ass, write_srt
 from .ideas import pick_situations
 from .learning import kpi_weights, load_lessons
 from .models import Premise, Script, load_json, save_json
+from .continuity import record_episode
+from .packaging import build_package
 from .publish import publish
 from .store import Store
+from .voice.lipsync import LipSync
 from .voice.tts import build_dialogue_track, make_tts
 from .writing.llm import make_llm
 from .writing.showrunner import Showrunner
@@ -96,6 +99,7 @@ class Pipeline:
                 self._subs(episode_id, lang)
                 self._render(episode_id, lang)
                 self._edit(episode_id, lang)
+                self._package(episode_id, lang)
             status = self._qa_and_review(episode_id)
         except Exception as e:  # noqa: BLE001 - on journalise toute panne d'étape
             log.exception("épisode %s en échec", episode_id)
@@ -147,8 +151,11 @@ class Pipeline:
             if not out.exists():
                 self.tts.synthesize(ln.text, lang, chars[ln.character]["voices"][lang], ln.emotion, out)
             ln.audio = str(out)
-        total = build_dialogue_track(script.scenes, int(self.cfg["tts"]["sample_rate"]),
-                                     int(self.cfg["animation"]["fps"]), d / "dialogue.wav")
+        fps = int(self.cfg["animation"]["fps"])
+        total = build_dialogue_track(script.scenes, int(self.cfg["tts"]["sample_rate"]), fps, d / "dialogue.wav")
+        lips = LipSync(self.cfg.get("lipsync", {}) or {})
+        for ln in script.lines:
+            ln.visemes = lips.visemes(Path(ln.audio), ln.text, ln.envelope, fps)
         save_json(script, d / "script_timed.json")
         self._done(eid, f"voice_{lang}", **{f"duration_{lang}": round(total, 2)})
 
@@ -222,6 +229,21 @@ class Pipeline:
                                  "srt": None, "srt_translated": []})
         self._done(eid, f"edit_{lang}", deliverables=deliverables)
 
+    def _package(self, eid: str, lang: str) -> None:
+        if self._stage(eid, f"package_{lang}"):
+            return
+        d = self.epdir(eid) / lang
+        script = Script.from_dict(load_json(d / "script_timed.json"))
+        short = d / f"{eid}_{lang}_short.mp4"
+        pkg = build_package(self.cfg, self.llm, eid, lang, script, d / f"{eid}_{lang}_clean.mp4",
+                            short if short.exists() else None, self.epdir(eid) / "package" / lang)
+        deliverables = self.store.get(eid)["info"].get("deliverables", [])
+        for it in deliverables:
+            if it["lang"] == lang:
+                it["package"] = pkg["dir"]
+                it["title"] = pkg["youtube"]["title"] if it["kind"] == "episode" else it["title"]
+        self._done(eid, f"package_{lang}", deliverables=deliverables)
+
     def _qa_and_review(self, eid: str) -> str:
         scripts = {l: Script.from_dict(load_json(self.epdir(eid) / l / "script_timed.json"))
                    for l in self.cfg.languages}
@@ -252,9 +274,18 @@ class Pipeline:
         premise = load_json(self.epdir(eid) / "premise.json")
         items = []
         for it in ep["info"].get("deliverables", []):
-            items.append({**it, "description": f"{premise['logline']}\n\n#animation #humour #webserie"
-                          if it["lang"] == "fr" else f"{premise['logline']}\n\n#animation #comedy"})
+            pkg = Path(it.get("package") or self.epdir(eid) / "package" / it["lang"])
+            meta = load_json(pkg / ("youtube.json" if it["kind"] == "episode" else "tiktok.json")) \
+                if pkg.exists() else {}
+            items.append({**it, "description": meta.get("description") or meta.get("caption") or premise["logline"],
+                          "thumbnail": str(pkg / "thumbnail.jpg") if it["kind"] == "episode" else meta.get("cover")})
         res = publish(self.cfg, self.epdir(eid), {"episode_id": eid, "items": items})
+        # MÉMOIRE : l'épisode validé enrichit la continuité de la série (une seule fois)
+        if not ep["info"].get("continuity_recorded"):
+            lang0 = self.cfg.languages[0]
+            script = Script.from_dict(load_json(self.epdir(eid) / lang0 / "script_timed.json"))
+            facts = record_episode(self.cfg, self.llm, eid, premise["logline"], script)
+            self.store.update(eid, info={"continuity_recorded": True, "continuity_facts": facts})
         self.store.update(eid, status="approved" if res["dry_run"] else "published", info={"publish": res})
         self.store.log(eid, "publish", res)
         return res

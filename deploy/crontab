@@ -1,5 +1,5 @@
 # Toon-o-Matic — 2 fournées par jour (2 épisodes chacune = 4 épisodes/jour)
 # m h  dom mon dow  commande
-15 2  *   *   *    cd /opt/toonomatic && TOONOMATIC_LLM=claude TOONOMATIC_TTS=xtts TOONOMATIC_RENDERER=blender toonomatic daily >> runs/cron.log 2>&1
-15 14 *   *   *    cd /opt/toonomatic && TOONOMATIC_LLM=claude TOONOMATIC_TTS=xtts TOONOMATIC_RENDERER=blender toonomatic daily >> runs/cron.log 2>&1
+15 2  *   *   *    cd /opt/toonomatic && TOONOMATIC_LLM=claude TOONOMATIC_TTS=chatterbox TOONOMATIC_RENDERER=blender toonomatic daily >> runs/cron.log 2>&1
+15 14 *   *   *    cd /opt/toonomatic && TOONOMATIC_LLM=claude TOONOMATIC_TTS=chatterbox TOONOMATIC_RENDERER=blender toonomatic daily >> runs/cron.log 2>&1
 */10 * *  *   *    cd /opt/toonomatic && toonomatic resume >> runs/cron.log 2>&1
