@@ -70,6 +70,30 @@ Les personnages sont stockés une fois dans le Vault (`series/<slug>/`) : modèl
 
 Pilote V1 en local, sans rien déployer : `toonomatic -c config/pilot.yaml serve`, puis ouvrez http://127.0.0.1:8080 et commandez un brouillon. Le pilote, c'est 1 série, 3 personnages, 1 décor et un épisode de 2 minutes en FR et EN.
 
+## Des personnages-marques, pas seulement des acteurs
+
+Un personnage devient une marque quand le public l'**utilise** : il le cite, le partage, l'envoie à la place d'un message. L'usine l'organise en trois briques.
+
+**1. Le noyau de personnage** (`kernel` dans `cast.yaml`, injecté dans tous les prompts)
+
+| | Archétype | Désir | Peur | Contradiction, moteur des mèmes |
+|---|---|---|---|---|
+| Momo | débrouillard chaotique | devenir riche sans effort | qu'on découvre qu'il galère | travaille énormément pour ne pas travailler |
+| Lina | lucide cynique | qu'on l'écoute enfin | devenir comme eux | méprise les plans de Momo… et les sauve toujours |
+| Tonton | sage désabusé | la paix et son thé | devoir se presser | ne fait rien, mais tout le quartier dépend de lui |
+
+**2. Le contrôle de marque** (`toonomatic brand-check`) : la règle « reconnaissable en 0,5 seconde » devient un test automatique.
+- Chaque personnage est rendu en **ombre chinoise à 64 px** (taille vignette). On mesure le recouvrement entre silhouettes (IoU) ; au-delà de 0,8, deux personnages sont jugés confondables.
+- On vérifie aussi l'écart perceptuel (ΔE) entre **couleurs signatures**, et avec le décor de la série.
+- Résultat : `series/<slug>/brand/report.json` et une planche `silhouettes.png`.
+- Le trio est conçu en **I** (Momo, colonne orange), **carré avec chignon** (Lina, bloc bleu) et **O** (le tonton, poire verte sans cou). Un premier essai avec des corps identiques échouait (Lina et le tonton à 89 % de recouvrement) : c'est exactement ce que le test doit attraper.
+
+**3. L'extracteur de stickers** (`toonomatic stickers <épisode>`, automatique au niveau final)
+- Choisit les meilleurs moments : émotion forte, geste « mème » (facepalm, choc, rire…), réplique courte, scène phare. Un seul sticker par combinaison personnage × émotion × geste, pour un pack varié.
+- Rend le personnage seul, au sommet de son geste, sur fond transparent, avec contour blanc et légende de 4 mots au plus, **écrite dans chaque langue**.
+- Produit les packs WhatsApp (512×512, WebP < 100 Ko, icône 96×96, `contents.json`) et Telegram (PNG 512 px).
+- La bibliothèque grandit à chaque épisode ; le pack garde les 30 expressions les plus récentes.
+
 ## Démarrage rapide
 
 ```bash

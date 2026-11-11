@@ -423,6 +423,20 @@ class Pipeline:
             except Exception as e:  # noqa: BLE001 - la notification ne doit pas casser la prod
                 log.warning("notification Telegram impossible : %s", e)
 
+    def _stickers(self, eid: str) -> None:
+        """Niveau final validé : les meilleures expressions rejoignent les packs de stickers."""
+        if not self.cfg.get("stickers.enabled", True) or self._stage(eid, "stickers"):
+            return
+        from . import stickers
+        from .animation.blender_render import BlenderError
+        try:
+            new = stickers.extract(self.cfg, self.llm, self.epdir(eid), eid,
+                                   int(self.cfg.get("stickers.per_episode", 6)))
+        except BlenderError as e:  # pas de moteur 3D sur cette machine : on ne bloque pas la publication
+            log.warning("[%s] stickers non générés : %s", eid, e)
+            return
+        self._done(eid, "stickers", stickers=[s["id"] for s in new])
+
     # ------------------------------------------------------------------ publication
     def publish(self, eid: str) -> dict:
         ep = self.store.get(eid)
@@ -437,6 +451,8 @@ class Pipeline:
             items.append({**it, "description": meta.get("description") or meta.get("caption") or premise["logline"],
                           "thumbnail": str(pkg / "thumbnail.jpg") if it["kind"] == "episode" else meta.get("cover")})
         res = publish(self.cfg, self.epdir(eid), {"episode_id": eid, "items": items})
+        self._use_tier(eid)
+        self._stickers(eid)
         # MÉMOIRE : l'épisode validé enrichit la continuité de la série (une seule fois)
         if not ep["info"].get("continuity_recorded"):
             lang0 = self.cfg.languages[0]

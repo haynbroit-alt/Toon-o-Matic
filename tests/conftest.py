@@ -15,6 +15,9 @@ def cfg(tmp_path):
     series = tmp_path / "series"
     shutil.copytree(ROOT / "series" / "les-voisins", series)
     (series / "memory" / "continuity.jsonl").write_text("", encoding="utf-8")
+    for generated in ("plates/*.png", "stickers", "brand"):  # isolation : jamais d'artefacts d'un essai local
+        for g in series.glob(generated):
+            shutil.rmtree(g) if g.is_dir() else g.unlink()
     return load_config(overrides={
         "series": str(series),
         "workdir": str(tmp_path / "runs"),

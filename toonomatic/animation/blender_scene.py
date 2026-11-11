@@ -43,6 +43,7 @@ def args():
     p.add_argument("--samples", type=int, default=0, help="0 = valeur du style")
     p.add_argument("--fps", type=int, default=0, help="surcharge (animation en 2 = fps/2)")
     p.add_argument("--scale", type=int, default=100, help="% de la résolution (aperçus rapides)")
+    p.add_argument("--frame", type=int, default=0, help="ne rendre que cette image (stickers, silhouettes)")
     return p.parse_args(argv)
 
 
@@ -254,7 +255,7 @@ class Actor:
         sig = info.get("signature") or {}
         ph = STYLE.s.get("placeholder", {})
         hs = float(sig.get("head_scale", 1.0)) * float(ph.get("head_scale", 1.0))
-        neck = float(ph.get("neck", 0.15))
+        neck = float((sig.get("build") or {}).get("neck", ph.get("neck", 0.15)))
         br = float(ph.get("body_radius", 0.45))
         skin = hex_rgba(sig.get("skin", info["color"]))
         outfit = hex_rgba(sig.get("outfit_color", info["color"]))
@@ -262,7 +263,8 @@ class Actor:
         dark = (0.02, 0.02, 0.025, 1)
         x, y, _ = self.loc
         R = 0.5 * hs
-        neck_top = 1.6 + neck
+        bh0 = 1.6 * float((sig.get("build") or {}).get("height", 1.0))
+        neck_top = bh0 + neck
         cz = neck_top + R * 0.85
         self.head_z = cz
         bpy.ops.object.empty_add(location=(x, y, 0))
@@ -279,9 +281,18 @@ class Actor:
 
         m_out, m_skin = STYLE.material(f"{self.id}_outfit", outfit), STYLE.material(f"{self.id}_skin", skin)
         m_hair, m_dark = STYLE.material(f"{self.id}_hair", hair), STYLE.material(f"{self.id}_dark", dark)
-        body = add("cylinder", (x, y, 0.8), m_out, radius=br, depth=1.6)
+        build = sig.get("build") or {}
+        bh = 1.6 * float(build.get("height", 1.0))     # hauteur du corps
+        bw = br * float(build.get("width", 1.0))       # largeur du corps
+        shape = build.get("shape", "column")
+        if shape == "pear":   # silhouette en O : corps rond, ancré au sol
+            body = add("uv_sphere", (x, y, bh / 2), m_out, scale=(bw, bw * 0.9, bh / 2), radius=1.0)
+        elif shape == "block":  # silhouette carrée : compacte
+            body = add("cube", (x, y, bh / 2), m_out, scale=(bw, bw * 0.8, bh / 2))
+        else:                 # silhouette en I : colonne haute et fine
+            body = add("cylinder", (x, y, bh / 2), m_out, radius=bw, depth=bh)
         self._parent(body, self.root)
-        neck_ob = add("cylinder", (x, y, 1.6 + neck / 2), m_skin, radius=0.11 * max(1.0, hs * 0.8), depth=neck + 0.1)
+        neck_ob = add("cylinder", (x, y, bh0 + neck / 2), m_skin, radius=0.11 * max(1.0, hs * 0.8), depth=max(0.05, neck + 0.1))
         self._parent(neck_ob, self.root)
         bpy.ops.object.empty_add(location=(x, y, neck_top))
         self.head = bpy.context.active_object
@@ -314,6 +325,10 @@ class Actor:
             parts.append(add("cube", (x, y - R * 0.98, cz + R * 0.2), m_dark, scale=(R * 0.25, 0.02, 0.02)))
         if "moustache" in acc:
             parts.append(add("cube", (x, y - R * 0.95, cz - R * 0.28), m_hair, scale=(R * 0.3, 0.05, 0.05)))
+        if "bun" in acc:  # chignon (avec crayon) : signe distinctif en ombre chinoise
+            parts.append(add("uv_sphere", (x, y + R * 0.2, cz + R * 1.15), m_hair, radius=R * 0.42))
+            parts.append(add("cylinder", (x + R * 0.1, y + R * 0.2, cz + R * 1.2), STYLE.material("pencil", hex_rgba("#f2c230")),
+                             radius=0.03, depth=R * 1.4, rotation=(0, math.radians(70), 0)))
         if "cap" in acc:
             parts.append(add("cylinder", (x, y, cz + R * 0.78), m_out, radius=R * 0.95, depth=R * 0.35))
             parts.append(add("cube", (x, y - R * 0.9, cz + R * 0.68), m_out, scale=(R * 0.6, R * 0.45, 0.03)))
@@ -623,6 +638,8 @@ def main():
     direct_gazes(actors, sl["performances"], fps)
     cut_cameras(sl["shots"], setup_cameras(actors), fps)
     lights()
+    if a.frame:
+        sc.frame_start = sc.frame_end = min(a.frame, sc.frame_end)
     bpy.ops.render.render(animation=True)
     print(f"TOONOMATIC_RENDER_OK {a.out}")
 

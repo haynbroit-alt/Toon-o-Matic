@@ -8,7 +8,14 @@ characters:
     catchphrases: {fr: ["J'ai un plan.", "Fais-moi confiance."], en: ["I've got a plan.", "Trust me."]}
     look: "Grand, maigre, bonnet orange, blouson de livreur trop large, baskets usées. Silhouette en longueur."
     model_sheet: assets/model_sheets/momo.png
-    signature: {accessories: [cap], outfit_color: "#e8833a", hair: "#2b1d14", skin: "#d9a066", head_scale: 1.3}
+    kernel:   # noyau : la contradiction est la source des mèmes
+      archetype: {fr: "le débrouillard chaotique", en: "the chaotic hustler"}
+      desire: {fr: "devenir riche sans effort", en: "get rich without effort"}
+      fear: {fr: "qu'on découvre qu'il galère", en: "people finding out he is broke"}
+      contradiction: {fr: "travaille énormément pour ne pas avoir à travailler", en: "works extremely hard to avoid working"}
+      gimmick: {fr: "se penche en avant quand il vend une idée ; facepalm quand elle s'écroule", en: "leans forward when pitching; facepalms when it collapses"}
+    signature: {accessories: [cap], outfit_color: "#e8833a", hair: "#2b1d14", skin: "#d9a066", head_scale: 1.15,
+                build: {shape: column, height: 1.45, width: 0.7}}   # silhouette en « I »
     display: Momo
     bio_fr: "Livreur à scooter, philosophe de comptoir, persuadé d'avoir toujours un plan."
     bio_en: "Scooter courier and armchair philosopher, always convinced he has a plan."
@@ -22,12 +29,19 @@ characters:
     catchphrases: {fr: ["Non.", "Je vais faire semblant de pas avoir entendu."], en: ["No.", "I'll pretend I didn't hear that."]}
     look: "Petite, lunettes rondes, chignon fixé par un crayon, salopette avec outils. Silhouette compacte."
     model_sheet: assets/model_sheets/lina.png
-    signature: {accessories: [round_glasses], outfit_color: "#3a9be8", hair: "#4a2a1a", skin: "#c98e5e", head_scale: 1.25}
+    kernel:
+      archetype: {fr: "la lucide cynique", en: "the cynical realist"}
+      desire: {fr: "qu'on l'écoute enfin", en: "to finally be listened to"}
+      fear: {fr: "devenir comme eux", en: "turning into one of them"}
+      contradiction: {fr: "méprise les plans de Momo… et les sauve toujours", en: "despises Momo's schemes… and always saves them"}
+      gimmick: {fr: "bras croisés, sourcil levé, un temps de silence avant la réplique", en: "crossed arms, raised eyebrow, a beat of silence before the line"}
+    signature: {accessories: [round_glasses, bun], outfit_color: "#2f6fe0", hair: "#4a2a1a", skin: "#c98e5e", head_scale: 0.95,
+                build: {shape: block, height: 0.75, width: 2.4}}     # silhouette en « carré »
     display: Lina
     bio_fr: "Voisine du dessus, ingénieure, sarcastique, la seule adulte de la pièce."
     bio_en: "Upstairs neighbour, engineer, sarcastic, the only adult in the room."
     rig: lina.blend
-    color: "#3a9be8"
+    color: "#2f6fe0"
     voices:
       fr: {xtts_speaker_wav: assets/voices/lina_fr.wav, chatterbox_ref: assets/voices/lina_fr.wav, bark_preset: v2/fr_speaker_2, elevenlabs_voice_id: "", mock_pitch: 260}
       en: {xtts_speaker_wav: assets/voices/lina_en.wav, chatterbox_ref: assets/voices/lina_en.wav, bark_preset: v2/en_speaker_9, elevenlabs_voice_id: "", mock_pitch: 250}
@@ -36,12 +50,19 @@ characters:
     catchphrases: {fr: ["Je connais quelqu'un.", "Doucement, doucement."], en: ["I know a guy.", "Easy, easy."]}
     look: "Massif, moustache grise, bleu de travail taché, toujours un chiffon à l'épaule. Silhouette en poire."
     model_sheet: assets/model_sheets/tonton.png
-    signature: {accessories: [sunglasses, moustache], outfit_color: "#3d5a80", hair: "#b8b8b8", skin: "#d6a27a", head_scale: 1.5}
+    kernel:
+      archetype: {fr: "le sage désabusé du quartier", en: "the jaded neighbourhood sage"}
+      desire: {fr: "la paix et son thé", en: "peace and his tea"}
+      fear: {fr: "devoir se presser", en: "having to hurry"}
+      contradiction: {fr: "ne fait rien, mais tout le quartier dépend de lui", en: "does nothing, yet the whole block depends on him"}
+      gimmick: {fr: "sirote son thé pendant que tout s'effondre ; « doucement, doucement »", en: "sips his tea while everything collapses; \"easy, easy\""}
+    signature: {accessories: [sunglasses, moustache], outfit_color: "#5a8a3a", hair: "#b8b8b8", skin: "#d6a27a", head_scale: 1.2,
+                build: {shape: pear, height: 1.1, width: 3.3, neck: -0.25}}      # silhouette en « O »
     display: Tonton Rachid
     bio_fr: "Le tonton qui connaît quelqu'un qui connaît quelqu'un. Garagiste. Jamais pressé."
     bio_en: "The uncle who knows a guy who knows a guy. Mechanic. Never in a hurry."
     rig: tonton.blend
-    color: "#7bc96f"
+    color: "#5a8a3a"
     voices:
       fr: {xtts_speaker_wav: assets/voices/tonton_fr.wav, chatterbox_ref: assets/voices/tonton_fr.wav, bark_preset: v2/fr_speaker_5, elevenlabs_voice_id: "", mock_pitch: 120}
       en: {xtts_speaker_wav: assets/voices/tonton_en.wav, chatterbox_ref: assets/voices/tonton_en.wav, bark_preset: v2/en_speaker_3, elevenlabs_voice_id: "", mock_pitch: 115}

@@ -7,3 +7,5 @@ out/
 .env
 assets/cache/
 vault/
+series/*/stickers/
+series/*/brand/

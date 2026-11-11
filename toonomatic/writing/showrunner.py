@@ -100,6 +100,12 @@ class Showrunner:
                 bits.append(f"  répliques fétiches (avec parcimonie): {' / '.join(loc(v['catchphrases']) or [])}")
             if v.get("look"):
                 bits.append(f"  apparence: {v['look']}")
+            kn = v.get("kernel") or {}
+            if kn:
+                bits.append(f"  archétype: {loc(kn.get('archetype', {}))} | désir: {loc(kn.get('desire', {}))} | "
+                            f"peur: {loc(kn.get('fear', {}))}")
+                bits.append(f"  CONTRADICTION (moteur comique, à exploiter): {loc(kn.get('contradiction', {}))}")
+                bits.append(f"  gimmick: {loc(kn.get('gimmick', {}))}")
             chars.append("\n".join(bits))
         sets = ", ".join(self.cast["sets"].keys())
         acts = ", ".join(f"{k} = {v}" for k, v in self.cast["actions"].items())

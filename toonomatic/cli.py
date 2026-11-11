@@ -60,6 +60,10 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("plates", help="générer les décors 2D manquants de la série")
     s.add_argument("--force", action="store_true", help="régénérer aussi les plaques existantes")
     s.add_argument("sets", nargs="*", help="ids de décors (défaut : tous)")
+    sub.add_parser("brand-check", help="contrôle de marque : silhouettes (64 px) et couleurs signatures")
+    s = sub.add_parser("stickers", help="extraire les stickers d'un épisode et reconstruire les packs")
+    s.add_argument("episode_id", nargs="?", help="épisode source (sinon : seulement reconstruire les packs)")
+    s.add_argument("--max", type=int, default=6)
     s = sub.add_parser("series-memory", help="afficher la mémoire de continuité de la série")
 
     s = sub.add_parser("kpi-import", help="importer des KPI (CSV) pour l'apprentissage")
@@ -139,6 +143,25 @@ def main(argv: list[str] | None = None) -> int:
         from .animation.plates import ensure_plates
         for pth in ensure_plates(cfg, a.sets or None, a.force):
             print(pth)
+    elif a.cmd == "brand-check":
+        from .brand import check
+        r = check(cfg)
+        for x in r["silhouettes"]:
+            print(f"silhouette {x['a']:>8} / {x['b']:<8} recouvrement {x['silhouette_iou']:.2f}"
+                  f"{'  ⚠️ confondables' if x['confusable'] else ''}")
+        for x in r["colors"]:
+            print(f"couleur    {x['a']:>8} / {x['b']:<8} ΔE {x['delta_e']:>5}{'' if x['ok'] else '  ⚠️ trop proches'}")
+        print(("✅ marque lisible" if r["ok"] else "❌ " + " ; ".join(r["problems"])) + f"\nplanche : {r['sheet']}")
+        return 0 if r["ok"] else 1
+    elif a.cmd == "stickers":
+        from . import stickers
+        from .writing.llm import make_llm
+        if a.episode_id:
+            new = stickers.extract(cfg, make_llm(cfg["llm"]), cfg.workdir / a.episode_id, a.episode_id, a.max)
+            for e in new:
+                print(f"+ {e['id']}  " + "  ".join(f"[{l}] {c}" for l, c in e["captions"].items()))
+        for lang, d in stickers.build_packs(cfg).items():
+            print(f"pack {lang} : {d}")
     elif a.cmd == "series-memory":
         from .continuity import aired, load_facts
         for e in aired(cfg, 1000):
