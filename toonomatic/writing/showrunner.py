@@ -85,6 +85,7 @@ class Showrunner:
     # ----------------------------------------------------------------- bible commune
     def _bible(self, lang: str | None = None) -> str:
         from ..continuity import aired, load_facts
+        from ..social import bible_section as social_section
         L = lang or "fr"
         ser = self.cfg.series or {}
 
@@ -122,7 +123,8 @@ class Showrunner:
                 f"ACTIONS ANIMÉES: {acts}\nÉMOTIONS: {', '.join(self.emotions)}\n"
                 + (f"\nCE QUE LA SÉRIE A DÉJÀ ÉTABLI (à respecter, à réutiliser en clin d'œil):\n{facts}\n" if facts else "")
                 + (f"\nÉPISODES DÉJÀ DIFFUSÉS (ne pas refaire la même intrigue):\n{past}\n" if past else "")
-                + (f"\nLEÇONS DES ÉPISODES PRÉCÉDENTS (à respecter):\n{lessons}\n" if lessons else ""))
+                + (f"\nLEÇONS DES ÉPISODES PRÉCÉDENTS (à respecter):\n{lessons}\n" if lessons else "")
+                + social_section(self.cfg, L))
 
     def _showrunner_prompt(self, lang: str) -> str:
         path = self.cfg.path(self.cfg["languages"][lang]["showrunner"])

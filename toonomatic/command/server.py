@@ -152,6 +152,12 @@ def make_handler(cfg: Config, factory: Factory, token: str | None):
                 return self._json(200, {"tiers": factory.tiers(), "languages": cfg.languages,
                                         "series": (cfg.series or {}).get("title"),
                                         "gpu_tiers": [t for t in factory.tiers() if factory.needs_gpu(t)]})
+            if path == "/api/characters":
+                from ..social import card
+                return self._json(200, [card(cfg, cid) for cid in cfg.cast["characters"]])
+            if path == "/api/social":
+                from ..social import load_profile
+                return self._json(200, load_profile(cfg) or {})
             if path == "/api/situations":
                 return self._json(200, factory.situations())
             if path == "/api/episodes":
@@ -165,6 +171,12 @@ def make_handler(cfg: Config, factory: Factory, token: str | None):
                     return self._json(404, {"error": "épisode inconnu"})
                 if rest == "":
                     ep["media"] = _media_list(factory, ep)
+                    man = factory.read_json(eid, "presence/manifest.json") or {}
+                    ep["presence"] = [{**{k: v for k, v in a.items() if k not in ("video", "lines")},
+                                       "src": f"/api/episodes/{eid}/media/" + urllib.parse.quote(
+                                           f"presence/{a['lang']}/{a['scene']}/{a['kind']}.mp4")}
+                                      for a in man.get("assets", [])]
+                    ep["presence_plan"] = (factory.read_json(eid, "presence/plan.json") or [])[:6]
                     ep["events"] = factory.store.events(eid, 30)
                     return self._json(200, ep)
                 if rest.startswith("/media/"):

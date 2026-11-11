@@ -55,12 +55,19 @@ def score(line, highlight: bool) -> float:
     return EMOTION_W.get(line.emotion, 1) + ACTION_W.get(line.action, 1) + brevity + (1.5 if highlight else 0)
 
 
-def select_moments(script: Script, n: int = 6, seen: set | None = None) -> list[dict]:
+def select_moments(script: Script, n: int = 6, seen: set | None = None, scenes: set | None = None,
+                   weights: dict | None = None) -> list[dict]:
+    """`scenes` : limiter à certaines scènes ; `weights` : bonus appris de la mémoire sociale
+    pour une combinaison (personnage, émotion, geste)."""
     seen = set(seen or ())
+    weights = weights or {}
     cands = []
     for sc in script.scenes:
+        if scenes and sc.id not in scenes:
+            continue
         for ln in sc.lines:
-            cands.append((score(ln, sc.highlight), sc.id, ln))
+            bonus = weights.get((ln.character, ln.emotion, ln.action), 0.0)
+            cands.append((score(ln, sc.highlight) + bonus, sc.id, ln))
     out = []
     for s, scene_id, ln in sorted(cands, key=lambda c: -c[0]):
         key = (ln.character, ln.emotion, ln.action)
@@ -164,14 +171,16 @@ def load_index(cfg: Config) -> list[dict]:
     return [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()] if p.exists() else []
 
 
-def extract(cfg: Config, llm: LLM, episode_dir: Path, episode_id: str, n: int = 6) -> list[dict]:
+def extract(cfg: Config, llm: LLM, episode_dir: Path, episode_id: str, n: int = 6,
+            scenes: set | None = None) -> list[dict]:
     lib = _lib(cfg)
     lib.mkdir(parents=True, exist_ok=True)
     index = load_index(cfg)
     seen = {(e["character"], e["emotion"], e["action"]) for e in index}
     langs = cfg.languages
     base = Script.from_dict(load_json(episode_dir / langs[0] / "script_timed.json"))
-    moments = select_moments(base, n, seen)
+    from .social import expression_weights
+    moments = select_moments(base, n, seen, scenes, expression_weights(cfg))
     if not moments:
         log.info("[%s] aucune nouvelle expression pour les stickers", episode_id)
         return []

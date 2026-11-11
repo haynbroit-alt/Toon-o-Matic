@@ -64,6 +64,18 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("stickers", help="extraire les stickers d'un épisode et reconstruire les packs")
     s.add_argument("episode_id", nargs="?", help="épisode source (sinon : seulement reconstruire les packs)")
     s.add_argument("--max", type=int, default=6)
+    s = sub.add_parser("presence", help="décliner les scènes d'un épisode (scène, réaction, short, FR/EN)")
+    s.add_argument("episode_id")
+    s.add_argument("--scene", action="append", help="scène à décliner (répétable) ; défaut : les meilleures")
+    s.add_argument("--plan", action="store_true", help="afficher seulement le plan chiffré, sans rien fabriquer")
+    s = sub.add_parser("social-import", help="importer des mesures d'audience (CSV) dans la mémoire sociale")
+    s.add_argument("csv")
+    s.add_argument("--provenance", default="measured", choices=["measured", "declared", "estimated"])
+    s = sub.add_parser("social-comments", help="importer des commentaires publics (CSV : asset_id,platform,text)")
+    s.add_argument("csv")
+    sub.add_parser("social", help="profil social des personnages (ce que le public en fait)")
+    s = sub.add_parser("character", help="fiche d'un personnage : identité, histoire vécue, mémoire sociale")
+    s.add_argument("character_id")
     s = sub.add_parser("series-memory", help="afficher la mémoire de continuité de la série")
 
     s = sub.add_parser("kpi-import", help="importer des KPI (CSV) pour l'apprentissage")
@@ -143,6 +155,37 @@ def main(argv: list[str] | None = None) -> int:
         from .animation.plates import ensure_plates
         for pth in ensure_plates(cfg, a.sets or None, a.force):
             print(pth)
+    elif a.cmd == "presence":
+        from . import presence
+        d = cfg.workdir / a.episode_id
+        if a.plan:
+            for x in presence.plan(cfg, d):
+                print(f"{x['scene']}  score {x['score']:>5}  {', '.join(x['characters']):<22} "
+                      f"pic : {x['peak']['character']} {x['peak']['emotion']}/{x['peak']['action']}  "
+                      f"« {x['peak']['text'][:50]} »")
+            return 0
+        from .writing.llm import make_llm
+        man = presence.build(cfg, make_llm(cfg["llm"]), d, a.episode_id, a.scene, with_stickers=False)
+        for x in man["assets"]:
+            print(f"{x['id']:<52} {x['duration']:>5.1f} s  {x['video']}")
+    elif a.cmd in ("social-import", "social-comments"):
+        from . import social
+        n = social.import_metrics(cfg, a.csv, a.provenance) if a.cmd == "social-import" else \
+            social.import_comments(cfg, a.csv)
+        print(f"{n} ligne(s) importée(s)")
+    elif a.cmd == "social":
+        from . import social
+        prof = social.profile(cfg)
+        print(f"objets mesurés : {prof['assets_measured']} (seuil de décision : n ≥ {prof['min_samples']})")
+        for x in prof["characters"]:
+            print(f"  {x['character']:<8} engagement {x['engagement']:.3f}  n={x['n']}"
+                  f"{'' if x['sufficient'] else '  (données insuffisantes)'}")
+        for q in prof["quoted_lines"][:5]:
+            print(f"  « {q['line']} » — {q['character']}, reprise {q['quotes']} fois (commentaires publics)")
+        print("  partages WhatsApp privés : " + prof["not_measurable"]["whatsapp_private_shares"])
+    elif a.cmd == "character":
+        from .social import card
+        print(json.dumps(card(cfg, a.character_id), ensure_ascii=False, indent=2))
     elif a.cmd == "brand-check":
         from .brand import check
         r = check(cfg)

@@ -30,3 +30,8 @@ video{width:100%;border-radius:10px;background:#000;max-height:70vh}
 .toast{position:fixed;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:12px 14px;border-radius:12px;text-align:center}
 a{color:var(--pri)}.back{display:inline-block;padding:6px 0;text-decoration:none;font-weight:600}
 .tabs .btn.active{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.swatch{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px}
+.kv{display:grid;grid-template-columns:7.5em 1fr;gap:4px 10px;font-size:.92rem}.kv b{color:var(--muted);font-weight:600}
+.prov{font-size:.72rem;padding:1px 6px;border-radius:6px;background:var(--line);color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.grid2 video{max-height:300px}

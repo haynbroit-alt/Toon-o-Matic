@@ -136,6 +136,7 @@ class Pipeline:
                 self._edit(episode_id, lang)
                 self._package(episode_id, lang)
             self._direct(episode_id)
+            self._presence(episode_id)
             status = self._qa_and_review(episode_id)
         except Exception as e:  # noqa: BLE001 - on journalise toute panne d'étape
             log.exception("épisode %s en échec", episode_id)
@@ -327,7 +328,7 @@ class Pipeline:
 
     def _invalidate(self, eid: str, lang: str, frm: str) -> None:
         ep = self.store.get(eid)
-        drop = {f"{s}_{lang}" for s in self.DOWNSTREAM[frm]} | {"director", "qa"}
+        drop = {f"{s}_{lang}" for s in self.DOWNSTREAM[frm]} | {"director", "qa", "presence"}
         self.store.reset_stages(eid, [s for s in ep["stages"] if s not in drop])
 
     def _scene_of_line(self, script: Script, idx: int) -> str:
@@ -392,6 +393,7 @@ class Pipeline:
             for mp4 in d.glob("*.mp4"):
                 mp4.unlink()
             shutil.rmtree(self.epdir(eid) / "package" / lang, ignore_errors=True)
+        shutil.rmtree(self.epdir(eid) / "presence", ignore_errors=True)
         self.store.reset_stages(eid, [s for s in ep["stages"] if s in keep])
         self.store.update(eid, status="queued", info={"tier": tier, "deliverables": [],
                                                       "tier_history": ep["info"].get("tier_history", []) + [old]})
@@ -423,19 +425,34 @@ class Pipeline:
             except Exception as e:  # noqa: BLE001 - la notification ne doit pas casser la prod
                 log.warning("notification Telegram impossible : %s", e)
 
+    def _presence(self, eid: str) -> None:
+        """Déclinaisons des meilleures scènes (pour la revue) ; plan chiffré de toutes les scènes."""
+        if not self.cfg.get("presence.enabled", True) or self._stage(eid, "presence"):
+            return
+        from . import presence
+        man = presence.build(self.cfg, self.llm, self.epdir(eid), eid, with_stickers=False)
+        save_json(presence.plan(self.cfg, self.epdir(eid)), self.epdir(eid) / "presence" / "plan.json")
+        self._done(eid, "presence", presence={"scenes": man["scenes"], "assets": len(man["assets"])})
+
     def _stickers(self, eid: str) -> None:
-        """Niveau final validé : les meilleures expressions rejoignent les packs de stickers."""
-        if not self.cfg.get("stickers.enabled", True) or self._stage(eid, "stickers"):
+        """Épisode validé : il devient canon (histoire des personnages, catalogue, stickers)."""
+        if self._stage(eid, "stickers"):
             return
-        from . import stickers
+        from . import presence, stickers
         from .animation.blender_render import BlenderError
-        try:
-            new = stickers.extract(self.cfg, self.llm, self.epdir(eid), eid,
-                                   int(self.cfg.get("stickers.per_episode", 6)))
-        except BlenderError as e:  # pas de moteur 3D sur cette machine : on ne bloque pas la publication
-            log.warning("[%s] stickers non générés : %s", eid, e)
-            return
-        self._done(eid, "stickers", stickers=[s["id"] for s in new])
+        if (self.epdir(eid) / "presence" / "manifest.json").exists():
+            man = presence.commit(self.cfg, self.llm, self.epdir(eid), eid)
+            ids = man.get("stickers", [])
+        elif self.cfg.get("stickers.enabled", True):
+            try:
+                ids = [s["id"] for s in stickers.extract(self.cfg, self.llm, self.epdir(eid), eid,
+                                                         int(self.cfg.get("stickers.per_episode", 6)))]
+            except BlenderError as e:  # pas de moteur 3D sur cette machine : on ne bloque pas la publication
+                log.warning("[%s] stickers non générés : %s", eid, e)
+                return
+        else:
+            ids = []
+        self._done(eid, "stickers", stickers=ids)
 
     # ------------------------------------------------------------------ publication
     def publish(self, eid: str) -> dict:

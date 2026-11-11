@@ -113,7 +113,7 @@ async function renderEpisode(id) {
     ${ep.info.error ? `<div class="card fix">${esc(ep.info.error)}</div>` : ""}
     ${langs.length > 1 ? `<div class="tabs">${langs.map(l => `<button class="btn small" data-l="${l}">${l.toUpperCase()}</button>`).join("")}</div>` : ""}
     ${videos || (busy ? "" : '<p class="muted">Pas encore de vidéo.</p>')}
-    ${scoresHtml(ep.director_report)}${actions}
+    ${presenceHtml(ep)}${scoresHtml(ep.director_report)}${actions}
     <h2>Journal</h2><div class="card">${events || '<span class="muted small">—</span>'}</div>`;
   document.querySelectorAll("[data-l]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-l]").forEach(x => x.classList.toggle("active", x === b));
@@ -134,12 +134,48 @@ async function renderEpisode(id) {
   if (busy) timer = setTimeout(route, 6000);
 }
 
+const KIND = { scene: "Scène", reaction: "Réaction 10 s", short: "Short" };
+function presenceHtml(ep) {
+  if (!ep.presence?.length) return "";
+  const byScene = {};
+  ep.presence.forEach(a => (byScene[a.scene + "|" + a.lang] ||= []).push(a));
+  return `<h2>Présence · une scène, plusieurs rencontres</h2>` + Object.entries(byScene).map(([k, as]) => {
+    const [scene, lang] = k.split("|");
+    return `<div class="card" data-lang="${lang}"><div class="small muted">${scene} · ${lang.toUpperCase()} · ${esc(as[0].summary || "")}</div>
+      <div class="grid2">${as.map(a => `<div><div class="small"><b>${KIND[a.kind] || a.kind}</b> · ${a.duration} s</div>
+        <video controls playsinline preload="none" src="${a.src}"></video>
+        <div class="small muted">${esc(a.caption)}</div><div class="small muted">id : ${esc(a.id)}</div></div>`).join("")}</div></div>`;
+  }).join("");
+}
+
+const loc = (v, l = "fr") => (v && typeof v === "object") ? (v[l] || Object.values(v)[0] || "") : (v || "");
+async function renderCast() {
+  const cast = await api("/api/characters");
+  $app.innerHTML = `<h1>Personnages</h1>` + cast.map(c => {
+    const k = c.kernel || {}, sg = c.signature || {}, so = c.social || {};
+    const eng = so.engagement, men = so.mentions;
+    const quotes = (so.quoted_lines || []).map(q => `<div class="small">« ${esc(q.line)} » · ${q.quotes} reprise(s) <span class="prov">mesuré</span></div>`).join("");
+    const exprs = (so.best_expressions || []).map(e => `<div class="small">${esc(e.expression[1])} / ${esc(e.expression[2])} · n=${e.n} <span class="prov">${e.sufficient ? "mesuré" : "insuffisant"}</span></div>`).join("");
+    const hist = (c.history || []).slice(-3).reverse().map(h => `<div class="small muted">${esc(h.episode)} ${esc(h.scene)} · ${esc((h.summary || "").slice(0, 70))}</div>`).join("");
+    return `<div class="card"><h2 style="margin-top:0"><span class="swatch" style="background:${esc(sg.outfit_color || "#999")}"></span>${esc(c.display)}</h2>
+      <div class="kv"><b>Archétype</b><span>${esc(loc(k.archetype))}</span><b>Désir</b><span>${esc(loc(k.desire))}</span>
+        <b>Peur</b><span>${esc(loc(k.fear))}</span><b>Contradiction</b><span>${esc(loc(k.contradiction))}</span>
+        <b>Gimmick</b><span>${esc(loc(k.gimmick))}</span><b>Silhouette</b><span>${esc(sg.build?.shape || "–")}</span></div>
+      <h2>Ce que le public en fait</h2>
+      ${eng ? `<div class="small">Engagement ${eng.engagement} · n=${eng.n} <span class="prov">${eng.sufficient ? "mesuré" : "insuffisant"}</span></div>` : `<div class="small muted">Pas encore de données mesurées.</div>`}
+      ${men ? `<div class="small">Cité dans ${men.comments} commentaire(s) public(s) <span class="prov">mesuré</span></div>` : ""}
+      ${quotes}${exprs}<div class="small muted">Partages WhatsApp privés : non mesurables.</div>
+      <h2>Histoire vécue · ${c.scenes_lived} scène(s)</h2>${hist || '<div class="small muted">—</div>'}</div>`;
+  }).join("");
+}
+
 async function route() {
   clearTimeout(timer);
   try {
     if (!CFG) CFG = await api("/api/config");
     const h = location.hash.slice(1) || "/";
     if (h.startsWith("/ep/")) await renderEpisode(decodeURIComponent(h.slice(4)));
+    else if (h === "/cast") await renderCast();
     else if (h === "/new") await renderNew();
     else await renderList();
   } catch (e) { if (e.message !== "auth") $app.innerHTML = `<div class="card fix">${esc(e.message)}</div>`; }

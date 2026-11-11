@@ -70,6 +70,56 @@ Les personnages sont stockés une fois dans le Vault (`series/<slug>/`) : modèl
 
 Pilote V1 en local, sans rien déployer : `toonomatic -c config/pilot.yaml serve`, puis ouvrez http://127.0.0.1:8080 et commandez un brouillon. Le pilote, c'est 1 série, 3 personnages, 1 décor et un épisode de 2 minutes en FR et EN.
 
+## Une usine à personnages, pas une usine à vidéos
+
+L'indicateur de réussite n'est pas le nombre de vidéos produites. C'est **combien de personnes utilisent spontanément Momo, Lina et le tonton pour exprimer quelque chose de leur propre vie.**
+
+```
+CHARACTER VAULT ──► STORY ENGINE ──► EPISODE / VIDEO ENGINE ──► PRESENCE ENGINE ──► PUBLICATION
+  identité,           scénaristes FR/EN    voix, 3D, montage,          scène · réaction 10 s ·     YouTube, TikTok,
+  noyau, histoire     + réalisateur        3 niveaux                   short · stickers · FR/EN    WhatsApp, Telegram
+      ▲                                                                                              │
+      └──────────── LEARNING ENGINE ◄── MÉMOIRE SOCIALE (mesuré / déclaré / estimé) ◄── AUDIENCE ◄──┘
+```
+
+### Presence Engine (`presence.py`, `toonomatic presence <épisode>`)
+Une scène devient plusieurs occasions de rencontrer un personnage :
+
+| Objet | Format | Choix |
+|---|---|---|
+| Scène originale | 16:9, sous-titrée | la scène entière |
+| Réaction | 9:16, 10 s au plus | centrée sur le pic d'émotion, avec 2 s d'installation |
+| Short | 9:16, 59 s au plus | coupé sur une fin de réplique |
+| Stickers | WhatsApp / Telegram | les expressions de la scène |
+| Langues | FR et EN | chaque version avec ses propres répliques |
+| Mémoire | — | la scène entre dans l'histoire de chaque personnage présent |
+
+- **À la demande, pas en masse.** Un plan chiffré de toutes les scènes est établi gratuitement (`--plan`), mais seules les `presence.scenes_per_episode` meilleures sont fabriquées. Les autres le sont sur demande (`--scene s03`).
+- **Canon seulement après validation.** Les déclinaisons sont fabriquées pour la revue. Les stickers, l'histoire des personnages et le catalogue des objets ne sont écrits qu'à la publication : un épisode rejeté ne laisse aucune trace dans la mémoire.
+- Chaque objet a un identifiant stable `<épisode>.<scène>.<type>.<langue>`, qui relie plus tard les mesures d'audience à ses personnages, répliques et expressions.
+
+### Mémoire sociale (`social.py`)
+- `toonomatic social-import stats.csv` (`asset_id,platform,metric,value[,provenance]`) et `toonomatic social-comments comments.csv` (commentaires **publics**).
+- Toute donnée porte sa **provenance** :
+  - `measured` : plateformes, commentaires publics observés ;
+  - `declared` : rapporté par un humain ;
+  - `estimated` : déduit par un modèle ou une hypothèse.
+- **Seules les données mesurées pilotent la production.** Les partages WhatsApp privés ne sont pas mesurables : ils ne peuvent être que déclarés ou estimés, et restent affichés à part.
+- Elle apprend :
+  - quel personnage engage le plus ;
+  - quelles expressions font réagir (elles reviennent plus souvent dans les stickers et les déclinaisons) ;
+  - quels duos fonctionnent ;
+  - quelles répliques le public **reprend mot pour mot** (4 mots consécutifs dans un commentaire) ;
+  - quelles situations ont peu touché.
+- Aucune conclusion sous `social.min_samples` mesures : la fiche affiche « données insuffisantes ».
+- Ce qu'elle a appris est transmis aux scénaristes avec une règle explicite : **le noyau prime toujours**. Désir, peur et contradiction ne changent jamais selon l'audience. Une réplique populaire revient au plus une fois par épisode, jamais à l'identique.
+
+### Fiche personnage
+`toonomatic character momo`, ou la page **Personnages** de l'application mobile, réunit trois choses :
+- ce que le personnage **est** : noyau, signature, silhouette ;
+- ce qu'il a **vécu** : scènes, faits de continuité ;
+- ce que le public en **fait** : chaque chiffre avec sa provenance et la taille de l'échantillon.
+
 ## Des personnages-marques, pas seulement des acteurs
 
 Un personnage devient une marque quand le public l'**utilise** : il le cite, le partage, l'envoie à la place d'un message. L'usine l'organise en trois briques.
