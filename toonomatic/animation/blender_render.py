@@ -38,8 +38,9 @@ def render_scene(shotlist_path: Path, out: Path, bcfg: dict, fps: int, scale: in
     if proc.returncode != 0 or "TOONOMATIC_RENDER_OK" not in proc.stdout or not produced:
         raise BlenderError(f"rendu échoué pour {shotlist_path.name}:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}")
     # Normalise (fps final, pixel format) — et double les images si animation "en 2".
-    src_fps = fps // 2 if on_twos else fps
     sl = json.loads(Path(shotlist_path).read_text(encoding="utf-8"))
+    base_fps = int(sl.get("fps") or fps)  # la shot list fait foi : c'est la cadence rendue par Blender
+    src_fps = base_fps // 2 if on_twos else base_fps
     if sl.get("background") == "plate":  # personnages (RGBA) incrustés sur la plaque 2D recadrée par plan
         plates.composite(frames / "frame_%04d.png", src_fps, sl, out, fps)
     else:

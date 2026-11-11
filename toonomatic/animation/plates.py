@@ -70,8 +70,10 @@ def background_video(sl: dict, out: Path, fps: int) -> Path:
 
 def composite(frames_pattern: Path, frames_fps: int, sl: dict, out: Path, fps: int) -> Path:
     bg = background_video(sl, out.with_name(out.stem + "_bg.mp4"), fps)
+    w, h = sl["resolution"]  # l'image des personnages (rendue éventuellement à échelle réduite) épouse le décor
     ffmpeg.run(["-i", bg, "-framerate", frames_fps, "-i", frames_pattern,
-                "-filter_complex", f"[1:v]fps={fps}[fg];[0:v][fg]overlay=format=auto:shortest=1,format=yuv420p",
+                "-filter_complex", f"[1:v]fps={fps},scale={w}:{h}:flags=lanczos[fg];"
+                                   "[0:v][fg]overlay=format=auto:shortest=1,format=yuv420p",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-an", out])
     bg.unlink(missing_ok=True)
     return out

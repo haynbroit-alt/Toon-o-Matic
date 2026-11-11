@@ -536,8 +536,9 @@ def setup_cameras(actors):
         dx, dy = fx * 0.6, fy * 0.6 - 1.0  # entre l'axe du regard et la face caméra
         norm = math.hypot(dx, dy) or 1.0
         hz = a.head_z
-        cams[f"close:{a.id}"] = add_camera(f"CAM_close_{a.id}", (x + dx / norm * 4.5, y + dy / norm * 4.5, hz + 0.1),
-                                           (x, y, hz - 0.1), cs.get("lens_close", 55))
+        dist = float(cs.get("close_distance", 6.0))  # cadrage tête + épaules
+        cams[f"close:{a.id}"] = add_camera(f"CAM_close_{a.id}", (x + dx / norm * dist, y + dy / norm * dist, hz + 0.05),
+                                           (x, y, hz - 0.35), cs.get("lens_close", 55))
     return cams
 
 
