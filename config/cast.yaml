@@ -1,0 +1,59 @@
+# Distribution : les "acteurs" 3D récurrents.
+# rig      : fichier .blend dans asset_library/characters (sinon un avatar placeholder est généré)
+# color    : couleur du placeholder / de l'animatique
+# voices   : une voix par langue et par fournisseur TTS
+characters:
+  momo:
+    display: Momo
+    bio_fr: "Livreur à scooter, philosophe de comptoir, persuadé d'avoir toujours un plan."
+    bio_en: "Scooter courier and armchair philosopher, always convinced he has a plan."
+    rig: momo.blend
+    color: "#e8833a"
+    voices:
+      fr: {xtts_speaker_wav: assets/voices/momo_fr.wav, bark_preset: v2/fr_speaker_1, elevenlabs_voice_id: "", mock_pitch: 180}
+      en: {xtts_speaker_wav: assets/voices/momo_en.wav, bark_preset: v2/en_speaker_6, elevenlabs_voice_id: "", mock_pitch: 170}
+  lina:
+    display: Lina
+    bio_fr: "Voisine du dessus, ingénieure, sarcastique, la seule adulte de la pièce."
+    bio_en: "Upstairs neighbour, engineer, sarcastic, the only adult in the room."
+    rig: lina.blend
+    color: "#3a9be8"
+    voices:
+      fr: {xtts_speaker_wav: assets/voices/lina_fr.wav, bark_preset: v2/fr_speaker_2, elevenlabs_voice_id: "", mock_pitch: 260}
+      en: {xtts_speaker_wav: assets/voices/lina_en.wav, bark_preset: v2/en_speaker_9, elevenlabs_voice_id: "", mock_pitch: 250}
+  tonton:
+    display: Tonton Rachid
+    bio_fr: "Le tonton qui connaît quelqu'un qui connaît quelqu'un. Garagiste. Jamais pressé."
+    bio_en: "The uncle who knows a guy who knows a guy. Mechanic. Never in a hurry."
+    rig: tonton.blend
+    color: "#7bc96f"
+    voices:
+      fr: {xtts_speaker_wav: assets/voices/tonton_fr.wav, bark_preset: v2/fr_speaker_5, elevenlabs_voice_id: "", mock_pitch: 120}
+      en: {xtts_speaker_wav: assets/voices/tonton_en.wav, bark_preset: v2/en_speaker_3, elevenlabs_voice_id: "", mock_pitch: 115}
+
+sets:
+  rue:      {blend: street.blend,  color: "#5b5f73", label_fr: "La rue",      label_en: "The street"}
+  salon:    {blend: living.blend,  color: "#8a6f5a", label_fr: "Le salon",    label_en: "The living room"}
+  voiture:  {blend: car.blend,     color: "#4b6b5b", label_fr: "La voiture",  label_en: "The car"}
+  garage:   {blend: garage.blend,  color: "#6b5b4b", label_fr: "Le garage",   label_en: "The garage"}
+  epicerie: {blend: shop.blend,    color: "#7a5b7a", label_fr: "L'épicerie",  label_en: "The corner shop"}
+
+# Bibliothèque d'animations pré-enregistrées (actions NLA dans les rigs).
+# Le LLM ne peut choisir QUE parmi ces clés : c'est ce qui rend la 3D pilotable par le texte.
+actions:
+  idle: "Debout, respiration"
+  talk: "Parle normalement"
+  talk_hands: "Parle en agitant les bras"
+  angry: "S'énerve, poings serrés"
+  facepalm: "Se tape le front"
+  laugh: "Éclate de rire"
+  shrug: "Hausse les épaules"
+  point: "Montre du doigt"
+  sit: "Assis"
+  drive: "Conduit"
+  walk_in: "Entre dans le champ"
+  walk_out: "Sort du champ"
+  phone: "Au téléphone"
+  shocked: "Sursaute, choqué"
+
+emotions: [neutral, happy, angry, sad, surprised, sarcastic, scared, smug]

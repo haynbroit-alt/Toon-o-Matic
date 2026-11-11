@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toonomatic"
+version = "0.1.0"
+description = "Usine headless de production de web-séries animées 3D bilingues (FR/EN)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6", "requests>=2.31"]
+
+[project.optional-dependencies]
+claude = ["anthropic>=2.0"]
+xtts = ["coqui-tts>=0.24"]
+bark = ["suno-bark"]
+youtube = ["google-api-python-client>=2", "google-auth-oauthlib>=1"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+toonomatic = "toonomatic.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["toonomatic*"]
+
+[tool.setuptools.package-data]
+toonomatic = ["animation/blender_scene.py"]

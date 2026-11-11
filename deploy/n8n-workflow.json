@@ -1,0 +1,15 @@
+{
+  "name": "Toon-o-Matic — fournée quotidienne",
+  "nodes": [
+    {"parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "15 2,14 * * *"}]}},
+     "name": "Planification", "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2, "position": [0, 0]},
+    {"parameters": {"command": "cd /opt/toonomatic && .venv/bin/toonomatic -c config/prod.yaml daily"},
+     "name": "Produire", "type": "n8n-nodes-base.executeCommand", "typeVersion": 1, "position": [240, 0]},
+    {"parameters": {"command": "cd /opt/toonomatic && .venv/bin/toonomatic list"},
+     "name": "État de la file", "type": "n8n-nodes-base.executeCommand", "typeVersion": 1, "position": [480, 0]}
+  ],
+  "connections": {
+    "Planification": {"main": [[{"node": "Produire", "type": "main", "index": 0}]]},
+    "Produire": {"main": [[{"node": "État de la file", "type": "main", "index": 0}]]}
+  }
+}

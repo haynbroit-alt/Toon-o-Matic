@@ -1,0 +1,48 @@
+"""Lance Blender en headless (une instance par scène, N en parallèle)."""
+from __future__ import annotations
+
+import glob
+import logging
+import shutil
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+from .. import ffmpeg
+
+log = logging.getLogger(__name__)
+SCRIPT = Path(__file__).with_name("blender_scene.py")
+
+
+class BlenderError(RuntimeError):
+    pass
+
+
+def render_scene(shotlist_path: Path, out: Path, bcfg: dict, fps: int, scale: int = 100) -> Path:
+    exe = bcfg.get("executable", "blender")
+    if not shutil.which(exe) and not Path(exe).exists():
+        raise BlenderError(f"Blender introuvable ({exe}). Installez Blender ≥ 4.2 ou utilisez renderer: preview")
+    on_twos = bool(bcfg.get("animate_on_twos"))
+    frames = out.with_name(out.stem + "_frames")
+    cmd = [exe, "-b", "--factory-startup", "--python", str(SCRIPT), "--",
+           "--shotlist", str(shotlist_path), "--out", str(frames),
+           "--engine", bcfg.get("engine", "BLENDER_EEVEE_NEXT"),
+           "--samples", str(bcfg.get("samples", 16)), "--scale", str(scale)]
+    if on_twos:
+        cmd += ["--fps", str(fps // 2)]
+    log.info("blender %s", shotlist_path.name)
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    produced = sorted(glob.glob(str(frames / "frame_*.png")))
+    if proc.returncode != 0 or "TOONOMATIC_RENDER_OK" not in proc.stdout or not produced:
+        raise BlenderError(f"rendu échoué pour {shotlist_path.name}:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}")
+    # Normalise (fps final, pixel format) — et double les images si animation "en 2".
+    src_fps = fps // 2 if on_twos else fps
+    ffmpeg.run(["-framerate", src_fps, "-i", frames / "frame_%04d.png", "-vf", f"fps={fps},format=yuv420p",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-an", out])
+    shutil.rmtree(frames, ignore_errors=True)
+    return out
+
+
+def render_many(jobs: list[tuple[Path, Path]], bcfg: dict, fps: int) -> list[Path]:
+    with ThreadPoolExecutor(max_workers=max(1, int(bcfg.get("parallel_jobs", 1)))) as pool:
+        return list(pool.map(lambda j: render_scene(j[0], j[1], bcfg, fps), jobs))

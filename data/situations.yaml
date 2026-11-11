@@ -1,0 +1,21 @@
+# Banque de situations : le déclencheur par défaut quand aucune tendance n'est retenue.
+- id: colis-voisin
+  situation: "Un colis est livré chez le mauvais voisin, qui refuse de le rendre tant qu'on ne lui explique pas ce qu'il contient."
+  cast: [momo, lina, tonton]
+  sets: [rue, salon, epicerie]
+- id: place-parking
+  situation: "Une place de parking se libère enfin dans la rue. Trois personnes la convoitent. Personne ne cède."
+  cast: [momo, lina, tonton]
+  sets: [rue, voiture, garage]
+- id: code-wifi
+  situation: "Le code wifi de l'immeuble a changé et seul le tonton le connaît. Il en profite pour négocier."
+  cast: [momo, lina, tonton]
+  sets: [salon, garage, epicerie]
+- id: controle-technique
+  situation: "La voiture doit passer le contrôle technique demain matin. Elle n'a plus de freins arrière, mais elle a 'du caractère'."
+  cast: [momo, tonton, lina]
+  sets: [garage, voiture, rue]
+- id: appli-fitness
+  situation: "Momo installe une appli de fitness qui le tutoie, le juge et finit par appeler sa mère."
+  cast: [momo, lina]
+  sets: [salon, rue, epicerie]

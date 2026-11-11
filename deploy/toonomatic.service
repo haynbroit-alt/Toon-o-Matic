@@ -1,0 +1,10 @@
+[Unit]
+Description=Toon-o-Matic — fournée quotidienne
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/toonomatic
+EnvironmentFile=/opt/toonomatic/.env
+ExecStart=/opt/toonomatic/.venv/bin/toonomatic -c config/prod.yaml daily
+TimeoutStartSec=12h

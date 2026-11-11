@@ -1,0 +1,12 @@
+[Unit]
+Description=Toon-o-Matic — interface de revue web
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/toonomatic
+EnvironmentFile=/opt/toonomatic/.env
+ExecStart=/opt/toonomatic/.venv/bin/toonomatic -c config/prod.yaml serve-review
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

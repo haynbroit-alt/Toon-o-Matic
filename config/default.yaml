@@ -1,0 +1,107 @@
+# Toon-o-Matic — configuration de l'usine
+# Chaque bloc a un "provider" interchangeable. "mock" = fonctionne sans GPU ni clé API
+# (utile pour tester la chaîne complète en CI ou sur un laptop).
+
+workdir: runs                 # un dossier par épisode : runs/<episode_id>/
+database: runs/toonomatic.sqlite
+
+cadence:
+  episodes_per_day: 2         # 1 à 4
+  timezone: Europe/Paris
+
+episode:
+  target_minutes: 12          # durée visée (10–15 min)
+  min_minutes: 10
+  max_minutes: 15
+  minutes_per_scene: 1.3      # granularité du découpage (≈ 8–12 scènes)
+  max_extension_rounds: 3     # passes d'allongement si l'épisode est trop court
+
+languages:                    # une version par langue, écrite par un showrunner distinct
+  fr:
+    showrunner: config/showrunners/fr.md
+    words_per_minute: 165
+    subtitle_translation_to: [en]
+  en:
+    showrunner: config/showrunners/en_uk.md   # ou en_us.md (plus rythmé)
+    words_per_minute: 160
+    subtitle_translation_to: [fr]
+
+ideas:
+  bank: data/situations.yaml  # banque de situations / gags pré-écrits
+  trend_feeds: []             # ex. ["https://trends.google.com/trending/rss?geo=FR"]
+  avoid_repeat_days: 60
+
+llm:
+  provider: mock              # mock | claude | ollama
+  claude:
+    model: claude-opus-5-5
+    effort: high
+    max_tokens: 64000
+    server_side_fallback: true   # repli automatique si un modèle décline une requête
+  ollama:
+    host: http://localhost:11434
+    model: mistral-nemo
+    timeout_s: 600
+
+tts:
+  provider: mock              # mock | xtts | bark | elevenlabs
+  sample_rate: 48000
+  xtts:
+    model: tts_models/multilingual/multi-dataset/xtts_v2
+    device: cuda
+  bark:
+    device: cuda
+  elevenlabs:
+    model_id: eleven_multilingual_v2
+    api_key_env: ELEVENLABS_API_KEY
+
+animation:
+  renderer: preview           # preview (animatique FFmpeg, sans Blender) | blender
+  fps: 24
+  resolution: [1920, 1080]
+  blender:
+    executable: blender
+    engine: BLENDER_EEVEE_NEXT
+    samples: 16
+    parallel_jobs: 2          # rendus de scènes en parallèle (1 par GPU)
+    asset_library: assets/library   # sets/*.blend, characters/*.blend
+    animate_on_twos: false    # animation "en 2" : style cartoon + rendu 2x plus rapide
+
+editing:
+  burn_subtitles: true
+  subtitle_style:
+    font: DejaVu Sans
+    size: 54
+    outline: 3
+    max_chars_per_line: 42
+  music_bed: null             # chemin d'un fichier musical (ducking automatique sous les voix)
+  cutdown:                    # extrait vertical pour Shorts / TikTok / Reels
+    enabled: true
+    max_seconds: 59
+    resolution: [1080, 1920]
+
+qa:
+  min_risk_for_human: 0.3     # score >= seuil → revue humaine obligatoire
+  always_human_review: true   # recommandé au démarrage ; passer à false une fois la confiance établie
+  llm_content_review: true
+
+review:
+  channel: web                # web | telegram | cli
+  web:
+    host: 127.0.0.1
+    port: 8765
+  telegram:
+    bot_token_env: TELEGRAM_BOT_TOKEN
+    chat_id_env: TELEGRAM_CHAT_ID
+
+publish:
+  dry_run: true
+  targets: [local]            # local | youtube | tiktok | instagram
+  local_dir: out/published
+  youtube:
+    client_secrets: secrets/youtube_client.json
+    privacy: private
+
+learning:
+  lessons_file: data/lessons.md
+  max_lessons_in_prompt: 15
