@@ -2,14 +2,18 @@
 # Secrets (jamais dans ce fichier) : TOONOMATIC_TOKEN, ANTHROPIC_API_KEY,
 #   VAULT_ACCESS_KEY_ID, VAULT_SECRET_ACCESS_KEY, STUDIO_WEBHOOK_TOKEN
 state: {backend: vault}
+# PILOTE V1 : 1 décor, épisodes de 2 minutes (passer à 10–15 min une fois un personnage validé)
+episode: {target_minutes: 2, min_minutes: 1.6, max_minutes: 2.6, minutes_per_scene: 0.5, allowed_sets: [rue]}
+cadence: {episodes_per_day: 1}
 vault:
   backend: s3
+  fallback_local: true               # tant que R2 n'est pas configuré : vault local ÉPHÉMÈRE (signalé dans l'appli)
   s3:
     bucket: toonomatic
     endpoint_url: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
     region: auto
 workdir: /tmp/toonomatic/runs        # disque de travail jetable
-llm: {provider: claude}
+llm: {provider: claude, fallback: mock}   # sans ANTHROPIC_API_KEY : mode démo (scénarios factices, signalé)
 studio:
   cpu_launcher: inline               # brouillons & validations : sur le serveur COMMAND (CPU)
   gpu_launcher: none                 # à activer seulement après validation de la chaîne en mode économique :

@@ -5,5 +5,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-de
 WORKDIR /app
 COPY . .
 RUN pip install --no-cache-dir ".[claude,cloud]"
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 TOONOMATIC_HOME=/app
 CMD ["sh", "-c", "toonomatic -c config/cloud.yaml serve --host 0.0.0.0 --port ${PORT:-8080}"]

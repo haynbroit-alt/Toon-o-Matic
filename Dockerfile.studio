@@ -9,5 +9,5 @@ RUN curl -fsSL "https://download.blender.org/release/Blender${BLENDER_VERSION%.*
 WORKDIR /app
 COPY . .
 RUN pip3 install --no-cache-dir ".[claude,cloud,chatterbox]"
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 TOONOMATIC_HOME=/app
 CMD ["toonomatic", "-c", "config/cloud.yaml", "worker", "--gpu"]

@@ -63,6 +63,8 @@ Les personnages sont stockés une fois dans le Vault (`series/<slug>/`) : modèl
 ### Déploiement
 1. **Vault** : un bucket Cloudflare R2 (aucun frais de sortie, idéal pour le streaming), avec ses clés dans `VAULT_ACCESS_KEY_ID` et `VAULT_SECRET_ACCESS_KEY`. Renseignez `endpoint_url` dans `config/cloud.yaml`.
 2. **Command** sur Render : `render.yaml` (image Docker légère avec FFmpeg). Le jeton `TOONOMATIC_TOKEN` est généré par Render ; ouvrez l'URL sur Android, connectez-vous, puis *Ajouter à l'écran d'accueil*.
+   - Si le service a été créé à la main (sans `render.yaml`), ajoutez vous-même `TOONOMATIC_TOKEN` dans *Environment*. Sans lui, le studio démarre **verrouillé** et la page explique quoi faire.
+   - Sans R2 ni `ANTHROPIC_API_KEY`, il fonctionne quand même, en mode signalé dans l'application : disque éphémère et scénarios de démonstration. C'est utile pour vérifier la chaîne depuis le téléphone avant de payer quoi que ce soit.
 3. **Studio GPU**, seulement une fois la chaîne validée en mode économique : l'image `Dockerfile.studio` (Blender, voix) lance `toonomatic worker --gpu`. Elle traite **une** commande puis s'arrête. Branchez-la via `studio.gpu_launcher` :
    - `webhook` : un point d'entrée serverless GPU ;
    - `command` : n'importe quelle CLI de fournisseur ;

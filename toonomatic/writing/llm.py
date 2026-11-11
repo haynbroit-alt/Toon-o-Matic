@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import random
 from typing import Any, Protocol
 
@@ -174,8 +175,20 @@ class MockLLM:
         raise LLMError(f"MockLLM: tâche inconnue {task}")
 
 
+def llm_problem(cfg: dict) -> str | None:
+    if cfg.get("provider") == "claude" and not (os.environ.get("ANTHROPIC_API_KEY") or
+                                                os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        return "clé ANTHROPIC_API_KEY absente"
+    return None
+
+
 def make_llm(cfg: dict) -> LLM:
     provider = cfg.get("provider", "mock")
+    why = llm_problem(cfg)
+    if why and cfg.get("fallback"):
+        log.warning("LLM %s indisponible (%s) → repli sur %s (MODE DÉMO : scénarios factices)",
+                    provider, why, cfg["fallback"])
+        provider = cfg["fallback"]
     if provider == "claude":
         return ClaudeLLM(cfg.get("claude", {}))
     if provider == "ollama":

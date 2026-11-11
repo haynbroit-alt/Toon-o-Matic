@@ -9,7 +9,22 @@ from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parent.parent
+def _find_root() -> Path:
+    """Dossier de l'application (config/, series/, styles/…).
+
+    Ordre : variable TOONOMATIC_HOME, dossier courant, puis dossier du code source. Indispensable
+    quand le paquet est installé (Docker, Render) : le code vit alors dans site-packages, mais
+    la configuration et les séries restent dans le dossier de l'application.
+    """
+    candidates = [os.environ.get("TOONOMATIC_HOME"), os.getcwd(), str(Path(__file__).resolve().parent.parent)]
+    for c in candidates:
+        if c and (Path(c) / "config" / "default.yaml").is_file():
+            return Path(c).resolve()
+    raise FileNotFoundError("config/default.yaml introuvable : lancez depuis le dossier de Toon-o-Matic "
+                            "ou définissez TOONOMATIC_HOME")
+
+
+ROOT = _find_root()
 
 
 def _deep_merge(base: dict, override: dict) -> dict:

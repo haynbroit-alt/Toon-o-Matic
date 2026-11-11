@@ -50,7 +50,33 @@ def _media_list(f: Factory, ep: dict) -> list[dict]:
     return out
 
 
-def make_handler(cfg: Config, factory: Factory, token: str | None):
+def diagnostics(cfg: Config, token: str | None, locked: bool) -> dict:
+    """État de l'installation, lisible sur le téléphone (aucun secret n'est renvoyé)."""
+    import shutil
+    from ..vault import s3_problem
+    from ..writing.llm import llm_problem
+    v = cfg.get("vault") or {}
+    vault_why = s3_problem(v) if v.get("backend") == "s3" else None
+    llm_why = llm_problem(cfg.get("llm") or {})
+    warnings = []
+    if locked:
+        warnings.append("TOONOMATIC_TOKEN absent : le studio est verrouillé. Render → votre service → "
+                        "Environment → ajoutez TOONOMATIC_TOKEN (un mot de passe long), puis redéployez.")
+    if v.get("backend") == "s3" and vault_why:
+        warnings.append(f"Stockage R2 non configuré ({vault_why}) : les épisodes sont gardés sur un disque "
+                        "ÉPHÉMÈRE, effacé à chaque redéploiement.")
+    if llm_why:
+        warnings.append(f"Scénariste en MODE DÉMO ({llm_why}) : scénarios factices. Ajoutez ANTHROPIC_API_KEY.")
+    if not shutil.which("ffmpeg"):
+        warnings.append("FFmpeg introuvable : aucune vidéo ne peut être montée.")
+    return {"ok": True, "locked": locked, "auth": bool(token),
+            "vault": "r2/s3" if v.get("backend") == "s3" and not vault_why else
+                     ("local éphémère" if v.get("backend") == "s3" else v.get("backend", "local")),
+            "llm": (cfg.get("llm") or {}).get("fallback", "mock") if llm_why else (cfg.get("llm") or {}).get("provider"),
+            "gpu_launcher": (cfg.get("studio") or {}).get("gpu_launcher", "none"), "warnings": warnings}
+
+
+def make_handler(cfg: Config, factory: Factory | None, token: str | None, locked: bool = False):
     class Handler(BaseHTTPRequestHandler):
         server_version = "ToonOMatic/1"
 
@@ -145,7 +171,9 @@ def make_handler(cfg: Config, factory: Factory, token: str | None):
             if path in ("/app.js", "/style.css", "/manifest.webmanifest", "/sw.js", "/icon.svg"):
                 return self._static(path.lstrip("/"))
             if path == "/api/health":
-                return self._json(200, {"ok": True, "auth": bool(token)})
+                return self._json(200, diagnostics(cfg, token, locked))
+            if locked:
+                return self._json(503, {"error": "setup", "warnings": diagnostics(cfg, token, locked)["warnings"]})
             if not self._authed():
                 return self._json(401, {"error": "jeton requis"})
             if path == "/api/config":
@@ -199,6 +227,8 @@ def make_handler(cfg: Config, factory: Factory, token: str | None):
                 body = self._body()
             except (ValueError, json.JSONDecodeError) as e:
                 return self._json(400, {"error": str(e)})
+            if locked:
+                return self._json(503, {"error": "setup", "warnings": diagnostics(cfg, token, locked)["warnings"]})
             if path == "/api/login":
                 if token and not hmac.compare_digest(str(body.get("token", "")), token):
                     return self._json(401, {"error": "jeton invalide"})
@@ -227,8 +257,13 @@ def make_handler(cfg: Config, factory: Factory, token: str | None):
 
 def serve(cfg: Config, host: str = "127.0.0.1", port: int = 8080) -> None:
     token = os.environ.get((cfg.get("command") or {}).get("token_env", "TOONOMATIC_TOKEN")) or None
-    if host not in ("127.0.0.1", "localhost", "::1") and not token:
-        raise SystemExit("TOONOMATIC_TOKEN obligatoire pour écouter sur une interface publique")
-    srv = ThreadingHTTPServer((host, port), make_handler(cfg, Factory(cfg), token))
-    log.info("COMMAND sur http://%s:%s (jeton %s)", host, port, "actif" if token else "désactivé (local)")
+    # Public sans jeton : on DÉMARRE quand même (sinon la plateforme n'affiche qu'un « Failed deploy »),
+    # mais verrouillé : seule une page d'installation est servie, aucune commande n'est acceptée.
+    locked = host not in ("127.0.0.1", "localhost", "::1") and not token
+    factory = None if locked else Factory(cfg)
+    srv = ThreadingHTTPServer((host, port), make_handler(cfg, factory, token, locked))
+    for w in diagnostics(cfg, token, locked)["warnings"]:
+        log.warning(w)
+    log.info("COMMAND sur http://%s:%s (%s)", host, port,
+             "VERROUILLÉ : jeton manquant" if locked else ("jeton actif" if token else "local sans jeton"))
     srv.serve_forever()

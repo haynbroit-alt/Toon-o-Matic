@@ -12,8 +12,20 @@ function toast(msg) {
   const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
   document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
 }
+let HEALTH = null;
+function banner() {
+  const w = HEALTH?.warnings || [];
+  return w.length ? `<div class="card fix"><b>Installation à compléter</b>${w.map(x => `<p class="small">⚠️ ${esc(x)}</p>`).join("")}</div>` : "";
+}
+function renderSetup(warnings) {
+  $app.innerHTML = `<div class="card"><h1>Studio verrouillé</h1>
+    <p>Le serveur fonctionne, mais il n'accepte aucune commande tant qu'il n'est pas sécurisé.</p>
+    ${warnings.map(x => `<p class="small">⚠️ ${esc(x)}</p>`).join("")}
+    <button class="btn block" onclick="location.reload()">J'ai corrigé, réessayer</button></div>`;
+}
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...opts });
+  if (r.status === 503) { const d = await r.json().catch(() => ({})); renderSetup(d.warnings || []); throw new Error("auth"); }
   if (r.status === 401) { renderLogin(); throw new Error("auth"); }
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || `Erreur ${r.status}`);
@@ -40,7 +52,7 @@ function renderLogin() {
 
 async function renderList() {
   const eps = await api("/api/episodes");
-  $app.innerHTML = `<h1>${esc(CFG.series?.fr || "Studio")}</h1>` + (eps.length ? eps.map(e => `
+  $app.innerHTML = banner() + `<h1>${esc(CFG.series?.fr || "Studio")}</h1>` + (eps.length ? eps.map(e => `
     <a class="card" href="#/ep/${encodeURIComponent(e.id)}">
       <div class="row">${stBadge(e.status)} ${tierBadge(e.tier)}</div>
       <div style="margin-top:6px;font-weight:600">${esc(e.title)}</div>
@@ -172,6 +184,8 @@ async function renderCast() {
 async function route() {
   clearTimeout(timer);
   try {
+    if (!HEALTH) HEALTH = await fetch("/api/health").then(r => r.json()).catch(() => null);
+    if (HEALTH?.locked) { renderSetup(HEALTH.warnings); return; }
     if (!CFG) CFG = await api("/api/config");
     const h = location.hash.slice(1) || "/";
     if (h.startsWith("/ep/")) await renderEpisode(decodeURIComponent(h.slice(4)));

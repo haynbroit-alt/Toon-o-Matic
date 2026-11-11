@@ -167,13 +167,34 @@ class S3Vault:
                                               ExpiresIn=expires)
 
 
+def s3_problem(cfg: dict) -> str | None:
+    """Pourquoi le stockage S3/R2 n'est pas utilisable (ou None s'il semble configuré)."""
+    s3 = cfg.get("s3", {}) or {}
+    if not s3.get("bucket"):
+        return "nom de bucket absent (vault.s3.bucket)"
+    if "YOUR_ACCOUNT_ID" in (s3.get("endpoint_url") or ""):
+        return "adresse R2 non renseignée (vault.s3.endpoint_url)"
+    for k in ("access_key_env", "secret_key_env"):
+        env = s3.get(k, "VAULT_ACCESS_KEY_ID" if k == "access_key_env" else "VAULT_SECRET_ACCESS_KEY")
+        if not os.environ.get(env):
+            return f"variable {env} absente"
+    return None
+
+
 def make_vault(cfg: dict, root: Path) -> Vault:
     kind = cfg.get("backend", "local")
+    if kind == "s3":
+        why = s3_problem(cfg)
+        if why is None:
+            return S3Vault(cfg.get("s3", {}))
+        if not cfg.get("fallback_local"):
+            raise VaultError(f"stockage S3/R2 inutilisable : {why}")
+        import logging
+        logging.getLogger(__name__).warning("VAULT R2/S3 non configuré (%s) → vault LOCAL ÉPHÉMÈRE", why)
+        kind = "local"
     if kind == "local":
         p = Path(cfg.get("path", "vault"))
         return LocalVault(p if p.is_absolute() else root / p)
-    if kind == "s3":
-        return S3Vault(cfg.get("s3", {}))
     raise VaultError(f"backend de vault inconnu : {kind}")
 
 
