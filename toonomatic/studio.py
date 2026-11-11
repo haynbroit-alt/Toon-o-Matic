@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shlex
 import socket
 import subprocess
@@ -183,6 +184,41 @@ class Factory:
         if cloud(self.cfg):  # la commande (situation.json) part au vault ; le disque du serveur est jetable
             push_tree(self.vault, self.cfg.workdir / eid, _episode_prefix(eid))
         return self._dispatch({"episode_id": eid, "action": "run", "tier": tier})
+
+    # -- bureau d'écriture (scénario écrit hors de l'usine, sans clé)
+    def _situation(self, situation_id: str | None, situation_text: str | None) -> dict:
+        import random
+        if situation_text and situation_text.strip():
+            return {"id": "idee-" + time.strftime("%H%M%S"), "situation": situation_text.strip()[:600], "source": "mobile"}
+        bank = load_bank(self.cfg)
+        if situation_id:
+            sit = next((s for s in bank if s["id"] == situation_id), None)
+            if not sit:
+                raise ValueError(f"situation inconnue : {situation_id}")
+            return sit
+        return random.choice(bank)
+
+    def desk_brief(self, situation_id: str | None = None, situation_text: str | None = None) -> dict:
+        from .learning import load_lessons
+        from .writing import desk
+        sit = self._situation(situation_id, situation_text)
+        return {"situation": sit, "brief": desk.brief(self.cfg, sit, load_lessons(self.cfg)),
+                "plan": desk.plan(self.cfg, sit)}
+
+    def desk_import(self, situation: dict, text: str, tier: str | None = None) -> dict:
+        from .pipeline import Pipeline
+        tier = tier or self.cfg.get("production.default_tier", "draft")
+        if tier not in self.tiers():
+            raise ValueError(f"niveau inconnu : {tier}")
+        if not isinstance(situation, dict) or not situation.get("situation"):
+            raise ValueError("situation manquante : préparez d'abord le brief")
+        sit = {"id": re.sub(r"[^a-z0-9-]+", "-", str(situation.get("id") or "idee").lower())[:40] or "idee",
+               "situation": str(situation["situation"])[:600],
+               **{k: situation[k] for k in ("cast", "sets") if isinstance(situation.get(k), list)}}
+        eid, warnings = Pipeline(self.cfg).import_script(sit, text, tier)
+        if cloud(self.cfg):
+            push_tree(self.vault, self.cfg.workdir / eid, _episode_prefix(eid))
+        return {**self._dispatch({"episode_id": eid, "action": "run", "tier": tier}), "warnings": warnings}
 
     def decide(self, eid: str, decision: str, reason: str = "", redo_from: str = "script",
                tier: str | None = None, fixes: list | None = None) -> dict:

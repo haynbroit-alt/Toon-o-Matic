@@ -146,6 +146,17 @@ Un personnage devient une marque quand le public l'**utilise** : il le cite, le 
 - Produit les packs WhatsApp (512×512, WebP < 100 Ko, icône 96×96, `contents.json`) et Telegram (PNG 512 px).
 - La bibliothèque grandit à chaque épisode ; le pack garde les 30 expressions les plus récentes.
 
+## Bureau d'écriture : un scénario de haute qualité, sans aucune clé
+
+Le scénario n'est que du texte : rien n'oblige à l'écrire dans l'usine. Depuis l'application mobile (*＋ Épisode* → *Bureau d'écriture*) :
+1. **Préparer le brief** : le studio génère un texte complet (bible, noyau des personnages, mémoire, styles d'humour FR et EN, contraintes, format de réponse).
+2. **Le coller** dans l'application de chat de votre choix (Claude, Le Chat, ChatGPT, Gemini…), puis copier toute la réponse.
+3. **La recoller** dans le studio, qui la vérifie et lance la production.
+
+- Le texte collé est lu même entouré de phrases ou de balises de code. Un décor, une émotion ou un geste inconnus sont remplacés et signalés. Un personnage inconnu, une scène vide, une langue manquante ou une réponse coupée sont **expliqués** avant tout lancement.
+- Le brief et la réponse en cours restent sur le téléphone : on peut quitter le studio pour l'application de chat et revenir.
+- **Rien n'est inventé sans modèle.** Si aucun modèle n'est branché, l'usine ne fabrique ni critique éditoriale (histoire et personnages affichés « non noté »), ni traduction de sous-titres, ni faits de continuité. Les contrôles techniques (son, animation, publication) restent actifs.
+
 ## Salle d'écriture open source (sans dépendre d'un seul fournisseur)
 
 Un **connecteur unique** parle à tout serveur « compatible OpenAI » : Ollama (sur votre machine ou Ollama Cloud), Mistral, Groq, OpenRouter, NVIDIA NIM, vLLM, LM Studio. Avec `llm.provider: auto` :

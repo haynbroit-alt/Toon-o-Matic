@@ -84,7 +84,17 @@ def build_package(cfg: Config, llm: LLM, episode_id: str, lang: str, script: Scr
             "<context>" + json.dumps({"lang": lang, "title": script.title,
                                       "logline": scenes.splitlines()[0] if scenes else ""}, ensure_ascii=False)
             + "</context>")
-    meta = llm.generate_json("metadata", system, user, META_SCHEMA)
+    desk_meta = clean_video.parent / "desk_meta.json"
+    if desk_meta.exists():  # écrites avec le scénario, hors de l'usine
+        dm = json.loads(desk_meta.read_text(encoding="utf-8"))
+        meta = {"youtube_title": str(dm.get("youtube_title") or script.title),
+                "youtube_description": str(dm.get("youtube_description") or ""),
+                "tags": [str(t) for t in dm.get("tags") or []],
+                "tiktok_caption": str(dm.get("tiktok_caption") or script.title),
+                "hashtags": [str(t) for t in dm.get("hashtags") or []],
+                "thumbnail_text": str(dm.get("thumbnail_text") or script.title), "chapters": []}
+    else:
+        meta = llm.generate_json("metadata", system, user, META_SCHEMA)
     chaps = chapters(script, meta.get("chapters", []))
     desc = meta["youtube_description"].strip()
     if chaps:

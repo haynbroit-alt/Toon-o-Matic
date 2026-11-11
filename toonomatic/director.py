@@ -170,13 +170,18 @@ def rewrite_line(llm: LLM, script: Script, idx: int, instruction: str, bible: st
     return llm.generate_json("rewrite_line", system, user, REWRITE_SCHEMA)["text"].strip() or lines[idx].text
 
 
-def review(cfg: Config, llm: LLM, ep_dir: Path, bible: dict[str, str]) -> dict:
+NOT_RATED = ("Scénario importé du bureau d'écriture, aucun modèle branché : histoire et personnages ne sont "
+             "pas notés automatiquement. À vous de juger.")
+
+
+def review(cfg: Config, llm: LLM, ep_dir: Path, bible: dict[str, str], editorial: bool = True) -> dict:
     """Rapport complet : note par critère et liste de corrections ciblées par langue."""
     min_score = float(cfg.get("director.min_score", 6))
     report = {"languages": {}, "scores": {}, "fixes": []}
     for lang in cfg.languages:
         script = Script.from_dict(load_json(ep_dir / lang / "script_timed.json"))
-        crit = critique(cfg, llm, script, bible.get(lang, ""))
+        crit = critique(cfg, llm, script, bible.get(lang, "")) if editorial else \
+            {"histoire": None, "personnages": None, "notes": NOT_RATED, "fixes": []}
         s_sound, f_sound = check_sound(cfg, script)
         s_anim, f_anim = check_animation(ep_dir, lang, script,
                                          real_animation=cfg.get("animation.renderer") == "blender")
@@ -191,6 +196,10 @@ def review(cfg: Config, llm: LLM, ep_dir: Path, bible: dict[str, str]) -> dict:
         report["languages"][lang] = {"scores": scores, "notes": crit.get("notes", "")}
         report["fixes"] += fixes
     for c in CRITERIA:
-        report["scores"][c] = round(min(report["languages"][l]["scores"][c] for l in cfg.languages), 1)
-    report["verdict"] = "ok" if all(v >= min_score for v in report["scores"].values()) else "à corriger"
+        vals = [report["languages"][l]["scores"][c] for l in cfg.languages]
+        report["scores"][c] = None if any(v is None for v in vals) else round(min(vals), 1)
+    rated = [v for v in report["scores"].values() if v is not None]
+    report["verdict"] = "ok" if all(v >= min_score for v in rated) else "à corriger"
+    if len(rated) < len(CRITERIA):
+        report["verdict"] += " (technique seulement)"
     return report

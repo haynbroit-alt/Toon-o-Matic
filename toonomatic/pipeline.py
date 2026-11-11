@@ -110,6 +110,39 @@ class Pipeline:
                 self.run(eid)
         return ids
 
+    def import_script(self, situation: dict, text: str, tier: str | None = None) -> tuple[str, list[str]]:
+        """BUREAU D'ÉCRITURE : crée un épisode à partir d'un scénario écrit hors de l'usine.
+        Les étapes d'écriture sont marquées faites ; aucun modèle n'est appelé pour le texte."""
+        from .writing import desk
+        premise, scripts, metas, warnings = desk.parse(self.cfg, text, situation)  # lève DeskError si inexploitable
+        day = dt.date.today().strftime("%Y%m%d")
+        existing = {e["id"] for e in self.store.list()}
+        n = 1
+        while f"{day}-{n:02d}-{situation['id']}" in existing:
+            n += 1
+        eid = f"{day}-{n:02d}-{situation['id']}"
+        premise.id = eid
+        self.store.create(eid, situation["id"])
+        self.store.update(eid, info={"tier": tier or self.base.get("production.default_tier", "final"),
+                                     "written_by": "bureau", "desk_warnings": warnings})
+        d = self.epdir(eid)
+        save_json(situation, d / "situation.json")
+        save_json(premise, d / "premise.json")
+        self.store.update(eid, stage_done="premise")
+        for lang, script in scripts.items():
+            save_json(script, d / lang / "script.json")
+            # toujours écrit : sans métadonnées fournies, le kit de publication part du titre et du
+            # pitch au lieu de demander à un modèle
+            save_json({"youtube_description": premise.logline, **(metas.get(lang) or {})}, d / lang / "desk_meta.json")
+            self.store.update(eid, stage_done=f"script_{lang}")
+        self.store.log(eid, "import", {"warnings": warnings})
+        return eid, warnings
+
+    def _no_model(self, eid: str) -> bool:
+        """Scénario importé ET aucun vrai modèle branché : on n'invente ni critique, ni traduction."""
+        from .writing.llm import MockLLM
+        return (self.store.get(eid) or {}).get("info", {}).get("written_by") == "bureau" and isinstance(self.llm, MockLLM)
+
     def resume(self) -> list[str]:
         """Reprend les épisodes en file (nouveaux, interrompus ou « Refaire »)."""
         done = []
@@ -210,7 +243,7 @@ class Pipeline:
         write_ass(cues, d / f"subs.{lang}.ass", st, tuple(self.cfg["animation"]["resolution"]),
                   speaker_colors=colors)
         sr = Showrunner(self.cfg, self.llm)
-        for target in self.cfg["languages"][lang].get("subtitle_translation_to", []):
+        for target in ([] if self._no_model(eid) else self.cfg["languages"][lang].get("subtitle_translation_to", [])):
             tr = sr.translate_lines(script, target)
             write_srt(make_cues(script.lines, tr, st["max_chars_per_line"]), d / f"subs.{target}.srt")
         self._done(eid, f"subs_{lang}")
@@ -300,7 +333,8 @@ class Pipeline:
             return (f["action"], f["lang"], f.get("line"), f.get("scene"))
 
         for r in range(rounds + 1):
-            rep = director.review(self.cfg, self.llm, self.epdir(eid), self._bibles())
+            rep = director.review(self.cfg, self.llm, self.epdir(eid), self._bibles(),
+                                  editorial=not self._no_model(eid))
             history.append({"round": r, "scores": rep["scores"], "fixes": rep["fixes"]})
             # pas d'acharnement : une correction déjà tentée qui revient est laissée à l'humain
             fresh = [f for f in rep["fixes"] if key(f) not in applied]
@@ -404,7 +438,8 @@ class Pipeline:
         scripts = {l: Script.from_dict(load_json(self.epdir(eid) / l / "script_timed.json"))
                    for l in self.cfg.languages}
         finals = {l: self.epdir(eid) / l / f"{eid}_{l}.mp4" for l in self.cfg.languages}
-        report = qa.evaluate(self.cfg, self.llm, scripts, finals)
+        qcfg = self.cfg.derive({"qa": {"llm_content_review": False}}) if self._no_model(eid) else self.cfg
+        report = qa.evaluate(qcfg, self.llm, scripts, finals)
         qa.save(report, self.epdir(eid) / "qa_report.json")
         # Seul le niveau final peut être publié ; les niveaux inférieurs attendent une décision
         # (corriger / passer au niveau suivant).
@@ -474,7 +509,8 @@ class Pipeline:
         if not ep["info"].get("continuity_recorded"):
             lang0 = self.cfg.languages[0]
             script = Script.from_dict(load_json(self.epdir(eid) / lang0 / "script_timed.json"))
-            facts = record_episode(self.cfg, self.llm, eid, premise["logline"], script)
+            facts = record_episode(self.cfg, self.llm, eid, premise["logline"], script,
+                                   extract_facts=not self._no_model(eid))
             self.store.update(eid, info={"continuity_recorded": True, "continuity_facts": facts})
         self.store.update(eid, status="approved" if res["dry_run"] else "published", info={"publish": res})
         self.store.log(eid, "publish", res)

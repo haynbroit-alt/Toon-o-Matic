@@ -72,7 +72,9 @@ async function renderNew() {
     <div id="freeBox" hidden><label for="free">Votre idée</label><textarea id="free" rows="4" placeholder="Ex. : le tonton vend la même voiture à deux voisins le même jour."></textarea></div>
     <label for="tier">Niveau de production</label><select id="tier">${tiers}</select>
     <p class="muted small">Conseil : commencez en Brouillon. On ne paie le rendu final qu'une fois l'histoire validée.</p>
-    <button class="btn primary block" id="go">Lancer la production</button></div>`;
+    <button class="btn primary block" id="go">Lancer la production</button>
+    <p class="muted small" style="margin-top:14px">Pas de clé de modèle, ou envie d'une autre plume ?</p>
+    <a class="btn block" href="#/desk" style="text-align:center">✍️ Bureau d'écriture (copier-coller, sans clé)</a></div>`;
   const sel = document.getElementById("sit");
   sel.onchange = () => document.getElementById("freeBox").hidden = sel.value !== "__free";
   document.getElementById("go").onclick = async ev => {
@@ -88,8 +90,9 @@ async function renderNew() {
 
 function scoresHtml(rep) {
   if (!rep?.scores) return "";
-  const rows = CRIT.map(c => { const v = rep.scores[c] ?? 0; return `<div>${c}</div>
-    <div class="meter"><i style="width:${v * 10}%;background:${scoreColor(v)}"></i></div><div>${v}</div>`; }).join("");
+  const rows = CRIT.map(c => { const v = rep.scores[c]; return v == null
+    ? `<div>${c}</div><div class="small muted">non noté</div><div>–</div>`
+    : `<div>${c}</div><div class="meter"><i style="width:${v * 10}%;background:${scoreColor(v)}"></i></div><div>${v}</div>`; }).join("");
   const notes = Object.entries(rep.languages || {}).map(([l, x]) => x.notes ? `<p class="small"><b>${l.toUpperCase()}</b> · ${esc(x.notes)}</p>` : "").join("");
   const fixes = (rep.fixes || []).map(f => `<div class="fix small">${esc(f.action)} · ${esc(f.lang)} ${f.line !== undefined ? "#" + f.line : esc(f.scene || "")} — ${esc(f.why || "")}</div>`).join("");
   const unres = (rep.unresolved || []).length ? `<p class="small"><b>⚠️ Non résolu automatiquement — à vous de juger :</b></p>` +
@@ -123,6 +126,7 @@ async function renderEpisode(id) {
     <h1>${esc((ep.info.deliverables || [])[0]?.title || ep.id)}</h1>
     <div class="row">${stBadge(ep.status)} ${tierBadge(ep.tier)} <span class="small muted">risque ${ep.risk ?? "–"}</span></div>
     ${ep.info.error ? `<div class="card fix">${esc(ep.info.error)}</div>` : ""}
+    ${ep.info.written_by === "bureau" ? `<div class="small muted">✍️ Scénario du bureau d'écriture${(ep.info.desk_warnings || []).map(w => " · " + esc(w)).join("")}</div>` : ""}
     ${langs.length > 1 ? `<div class="tabs">${langs.map(l => `<button class="btn small" data-l="${l}">${l.toUpperCase()}</button>`).join("")}</div>` : ""}
     ${videos || (busy ? "" : '<p class="muted">Pas encore de vidéo.</p>')}
     ${presenceHtml(ep)}${scoresHtml(ep.director_report)}${actions}
@@ -144,6 +148,75 @@ async function renderEpisode(id) {
     } catch (e) { toast(e.message); b.disabled = false; }
   });
   if (busy) timer = setTimeout(route, 6000);
+}
+
+// ---- Bureau d'écriture : le scénario s'écrit dans l'application de chat de votre choix
+const DESK_KEY = "tm_desk";
+const deskLoad = () => { try { return JSON.parse(localStorage.getItem(DESK_KEY) || "null"); } catch { return null; } };
+const deskSave = d => { try { d ? localStorage.setItem(DESK_KEY, JSON.stringify(d)) : localStorage.removeItem(DESK_KEY); } catch {} };
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch {
+    const ta = document.getElementById("brief"); if (!ta) return false;
+    ta.focus(); ta.select(); try { return document.execCommand("copy"); } catch { return false; }
+  }
+}
+async function renderDesk() {
+  const d = deskLoad();   // gardé sur le téléphone : on peut quitter l'appli pour aller dans le chat et revenir
+  if (!d) {
+    const sits = await api("/api/situations");
+    $app.innerHTML = `<a href="#/new" class="back small">← Nouvel épisode</a><div class="card"><h1>Bureau d'écriture</h1>
+      <p class="small muted">Le scénario est écrit par l'application de chat de votre choix (Claude, Le Chat, ChatGPT, Gemini…). Aucune clé n'est nécessaire : le studio prépare le brief, vous collez la réponse.</p>
+      <label for="sit">Situation de départ</label>
+      <select id="sit"><option value="">🎲 Au hasard (banque d'idées)</option>${sits.map(s => `<option value="${esc(s.id)}">${esc(s.situation.slice(0, 70))}</option>`).join("")}
+        <option value="__free">✍️ Écrire ma propre idée…</option></select>
+      <div id="freeBox" hidden><label for="free">Votre idée</label><textarea id="free" rows="4"></textarea></div>
+      <button class="btn primary block" id="mk">1 · Préparer le brief</button></div>`;
+    const sel = document.getElementById("sit");
+    sel.onchange = () => document.getElementById("freeBox").hidden = sel.value !== "__free";
+    document.getElementById("mk").onclick = async ev => {
+      ev.target.disabled = true;
+      const body = sel.value === "__free" ? { situation_text: document.getElementById("free").value } : (sel.value ? { situation_id: sel.value } : {});
+      try { const r = await api("/api/desk/brief", { method: "POST", body: JSON.stringify(body) });
+        deskSave({ situation: r.situation, brief: r.brief, plan: r.plan, answer: "" }); renderDesk();
+      } catch (e) { if (e.message !== "auth") toast(e.message); ev.target.disabled = false; }
+    };
+    return;
+  }
+  const tiers = CFG.tiers.map(t => `<option value="${t}" ${t === "draft" ? "selected" : ""}>${TIER[t] || t}</option>`).join("");
+  $app.innerHTML = `<a href="#/new" class="back small">← Nouvel épisode</a>
+    <div class="card"><h1>Bureau d'écriture</h1>
+      <p class="small"><b>Situation :</b> ${esc(d.situation.situation)}</p>
+      <p class="small muted">${d.plan.scenes} scènes · ${d.plan.minutes} min · personnages : ${esc(d.plan.cast.join(", "))}</p></div>
+    <div class="card"><h2 style="margin-top:0">1 · Copiez le brief</h2>
+      <textarea id="brief" rows="5" readonly>${esc(d.brief)}</textarea>
+      <button class="btn primary block" id="cp">📋 Copier le brief</button></div>
+    <div class="card"><h2 style="margin-top:0">2 · Collez-le dans votre application de chat</h2>
+      <p class="small muted">Ouvrez une nouvelle conversation, collez, envoyez. Copiez ensuite TOUTE la réponse (le bloc de code). Si elle est coupée, demandez : « renvoie le JSON complet ».</p></div>
+    <div class="card"><h2 style="margin-top:0">3 · Collez la réponse ici</h2>
+      <textarea id="ans" rows="7" placeholder='{ "logline": … }'>${esc(d.answer || "")}</textarea>
+      <div id="probs"></div>
+      <label for="tier">Niveau de production</label><select id="tier">${tiers}</select>
+      <button class="btn ok block" id="imp">Vérifier et lancer la production</button>
+      <button class="btn block" id="rst">Recommencer avec une autre situation</button></div>`;
+  const ans = document.getElementById("ans");
+  ans.oninput = () => deskSave({ ...d, answer: ans.value });
+  document.getElementById("cp").onclick = async () => toast(await copyText(d.brief) ? "Brief copié" : "Copie impossible : sélectionnez le texte à la main");
+  document.getElementById("rst").onclick = () => { deskSave(null); renderDesk(); };
+  document.getElementById("imp").onclick = async ev => {
+    ev.target.disabled = true;
+    const r = await fetch("/api/desk/import", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ situation: d.situation, text: ans.value, tier: document.getElementById("tier").value }) });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401) { renderLogin(); return; }
+    if (r.status === 422) {
+      document.getElementById("probs").innerHTML = `<div class="fix small"><b>À corriger avant de lancer :</b>${data.problems.map(x => `<div>• ${esc(x)}</div>`).join("")}</div>`;
+      ev.target.disabled = false; return;
+    }
+    if (!r.ok) { toast(data.error || `Erreur ${r.status}`); ev.target.disabled = false; return; }
+    deskSave(null);
+    toast(data.warnings?.length ? "Lancé · " + data.warnings[0] : "Scénario accepté, production lancée");
+    location.hash = "#/ep/" + encodeURIComponent(data.episode_id);
+  };
 }
 
 const KIND = { scene: "Scène", reaction: "Réaction 10 s", short: "Short" };
@@ -190,6 +263,7 @@ async function route() {
     const h = location.hash.slice(1) || "/";
     if (h.startsWith("/ep/")) await renderEpisode(decodeURIComponent(h.slice(4)));
     else if (h === "/cast") await renderCast();
+    else if (h === "/desk") await renderDesk();
     else if (h === "/new") await renderNew();
     else await renderList();
   } catch (e) { if (e.message !== "auth") $app.innerHTML = `<div class="card fix">${esc(e.message)}</div>`; }

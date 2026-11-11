@@ -239,6 +239,15 @@ def make_handler(cfg: Config, factory: Factory | None, token: str | None, locked
             if not self._authed():
                 return self._json(401, {"error": "jeton requis"})
             try:
+                if path == "/api/desk/brief":
+                    return self._json(200, factory.desk_brief(body.get("situation_id"), body.get("situation_text")))
+                if path == "/api/desk/import":
+                    from ..writing.desk import DeskError
+                    try:
+                        return self._json(202, factory.desk_import(body.get("situation"), body.get("text", ""),
+                                                                   body.get("tier")))
+                    except DeskError as e:
+                        return self._json(422, {"error": "scénario inexploitable", "problems": e.problems})
                 if path == "/api/orders":
                     return self._json(202, factory.order(body.get("situation_id"), body.get("situation_text"),
                                                          body.get("tier")))

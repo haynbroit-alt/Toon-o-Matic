@@ -40,7 +40,9 @@ def load_facts(cfg: Config, limit: int | None = None) -> list[dict]:
     return facts[-limit:]
 
 
-def record_episode(cfg: Config, llm: LLM, episode_id: str, logline: str, script: Script) -> list[dict]:
+def record_episode(cfg: Config, llm: LLM, episode_id: str, logline: str, script: Script,
+                   extract_facts: bool = True) -> list[dict]:
+    """`extract_facts=False` : aucun modèle branché → on journalise l'épisode sans inventer de faits."""
     text = "\n".join(f"[{s.id}] {ln.character}: {ln.text}" for s in script.scenes for ln in s.lines)
     system = ("Tu es le scripte (responsable de la continuité) d'une série animée. Extrais au plus 5 faits "
               "DURABLES établis par cet épisode, utiles pour les épisodes suivants. Pas de résumé d'intrigue.")
@@ -49,7 +51,7 @@ def record_episode(cfg: Config, llm: LLM, episode_id: str, logline: str, script:
             "<context>" + json.dumps({"episode": episode_id, "logline": logline,
                                       "characters": sorted({ln.character for ln in script.lines})},
                                      ensure_ascii=False) + "</context>")
-    facts = llm.generate_json("continuity", system, user, FACTS_SCHEMA)["facts"][:5]
+    facts = llm.generate_json("continuity", system, user, FACTS_SCHEMA)["facts"][:5] if extract_facts else []
     p = _path(cfg)
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
