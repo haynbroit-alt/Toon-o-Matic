@@ -150,7 +150,7 @@ class Showrunner:
                 + _ctx({"situation": situation["situation"], "cast": cast, "sets": sets,
                         "n_beats": n_beats}))
         data = self.llm.generate_json("premise", system, user, _premise_schema(cast, sets))
-        beats = [Beat(id=b["id"] or f"s{i + 1:02d}", set=b["set"],
+        beats = [Beat(id=b["id"] or f"s{i + 1:02d}", set=b["set"] if b["set"] in sets else sets[i % len(sets)],
                       characters=[c for c in b["characters"] if c in cast] or cast[:2],
                       purpose=b["purpose"]) for i, b in enumerate(data["beats"])]
         for i, b in enumerate(beats):  # ids uniques et ordonnés

@@ -13,7 +13,7 @@ vault:
     endpoint_url: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
     region: auto
 workdir: /tmp/toonomatic/runs        # disque de travail jetable
-llm: {provider: claude, fallback: mock}   # sans ANTHROPIC_API_KEY : mode démo (scénarios factices, signalé)
+llm: {provider: auto, fallback: mock}     # modèles open source dont la clé est présente, puis Claude ; sinon mode démo
 studio:
   cpu_launcher: inline               # brouillons & validations : sur le serveur COMMAND (CPU)
   gpu_launcher: none                 # à activer seulement après validation de la chaîne en mode économique :

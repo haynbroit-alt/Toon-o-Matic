@@ -119,7 +119,23 @@ ideas:
   avoid_repeat_days: 60
 
 llm:
-  provider: mock              # mock | claude | ollama
+  provider: mock              # mock | auto | chain | claude | ollama
+  # SALLE D'ÉCRITURE open source : tout serveur « compatible OpenAI ». Un point d'accès n'est
+  # utilisé que si sa clé est présente ; quota épuisé chez l'un → le suivant prend le relais.
+  # `auto` = ces points d'accès, puis Claude si ANTHROPIC_API_KEY existe.
+  # Les noms de modèles et quotas gratuits changent : surchargez-les par variable (ex. GROQ_MODEL).
+  chain: [mistral, groq, openrouter, nvidia, ollama_cloud]
+  routes:                     # ordre de préférence par langue : deux plumes différentes
+    fr: [mistral, groq]       # Mistral (modèles français) pour l'humour français
+    en: [groq, mistral]
+  endpoints:
+    mistral:      {base_url: "https://api.mistral.ai/v1",      model: mistral-small-latest, model_env: MISTRAL_MODEL,    api_key_env: MISTRAL_API_KEY}
+    groq:         {base_url: "https://api.groq.com/openai/v1", model: openai/gpt-oss-120b,  model_env: GROQ_MODEL,       api_key_env: GROQ_API_KEY}
+    openrouter:   {base_url: "https://openrouter.ai/api/v1",   model: "meta-llama/llama-3.3-70b-instruct:free", model_env: OPENROUTER_MODEL, api_key_env: OPENROUTER_API_KEY, json_schema: false}
+    nvidia:       {base_url: "https://integrate.api.nvidia.com/v1", model: meta/llama-3.3-70b-instruct, model_env: NVIDIA_MODEL, api_key_env: NVIDIA_API_KEY, json_schema: false}
+    ollama_cloud: {base_url: "https://ollama.com/v1",          model: gpt-oss:120b,         model_env: OLLAMA_MODEL,     api_key_env: OLLAMA_API_KEY, json_schema: false}
+    # Ollama sur VOTRE machine (aucune clé) — à ajouter dans `chain` si un serveur Ollama est joignable :
+    # ollama_local: {base_url: "http://localhost:11434/v1", model: mistral-nemo}
   claude:
     model: claude-opus-5-5
     effort: high

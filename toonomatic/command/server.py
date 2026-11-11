@@ -54,7 +54,7 @@ def diagnostics(cfg: Config, token: str | None, locked: bool) -> dict:
     """État de l'installation, lisible sur le téléphone (aucun secret n'est renvoyé)."""
     import shutil
     from ..vault import s3_problem
-    from ..writing.llm import llm_problem
+    from ..writing.llm import describe, llm_problem
     v = cfg.get("vault") or {}
     vault_why = s3_problem(v) if v.get("backend") == "s3" else None
     llm_why = llm_problem(cfg.get("llm") or {})
@@ -66,13 +66,14 @@ def diagnostics(cfg: Config, token: str | None, locked: bool) -> dict:
         warnings.append(f"Stockage R2 non configuré ({vault_why}) : les épisodes sont gardés sur un disque "
                         "ÉPHÉMÈRE, effacé à chaque redéploiement.")
     if llm_why:
-        warnings.append(f"Scénariste en MODE DÉMO ({llm_why}) : scénarios factices. Ajoutez ANTHROPIC_API_KEY.")
+        warnings.append(f"Scénariste en MODE DÉMO ({llm_why}) : scénarios factices. Ajoutez une clé dans "
+                        "Render → Environment (par exemple GROQ_API_KEY ou MISTRAL_API_KEY, gratuites).")
     if not shutil.which("ffmpeg"):
         warnings.append("FFmpeg introuvable : aucune vidéo ne peut être montée.")
     return {"ok": True, "locked": locked, "auth": bool(token),
             "vault": "r2/s3" if v.get("backend") == "s3" and not vault_why else
                      ("local éphémère" if v.get("backend") == "s3" else v.get("backend", "local")),
-            "llm": (cfg.get("llm") or {}).get("fallback", "mock") if llm_why else (cfg.get("llm") or {}).get("provider"),
+            "llm": describe(cfg.get("llm") or {}),
             "gpu_launcher": (cfg.get("studio") or {}).get("gpu_launcher", "none"), "warnings": warnings}
 
 

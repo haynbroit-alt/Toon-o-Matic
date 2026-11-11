@@ -146,6 +146,16 @@ Un personnage devient une marque quand le public l'**utilise** : il le cite, le 
 - Produit les packs WhatsApp (512×512, WebP < 100 Ko, icône 96×96, `contents.json`) et Telegram (PNG 512 px).
 - La bibliothèque grandit à chaque épisode ; le pack garde les 30 expressions les plus récentes.
 
+## Salle d'écriture open source (sans dépendre d'un seul fournisseur)
+
+Un **connecteur unique** parle à tout serveur « compatible OpenAI » : Ollama (sur votre machine ou Ollama Cloud), Mistral, Groq, OpenRouter, NVIDIA NIM, vLLM, LM Studio. Avec `llm.provider: auto` :
+- un point d'accès est utilisé **dès que sa clé est présente** dans l'environnement (`MISTRAL_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `NVIDIA_API_KEY`, `OLLAMA_API_KEY`), puis Claude si `ANTHROPIC_API_KEY` existe ;
+- **relais automatique** : quota gratuit épuisé ou panne chez l'un, le suivant prend la suite ;
+- **une plume par langue** (`llm.routes`) : Mistral d'abord pour le français, un autre modèle d'abord pour l'anglais ;
+- la sortie JSON est revalidée ici. Une réponse invalide est renvoyée une fois au modèle avec ses erreurs ; un décor, une émotion ou un geste inventés sont remplacés par une valeur valide au lieu de faire échouer l'épisode.
+
+Les noms de modèles et les quotas gratuits changent souvent : chaque modèle se surcharge par variable (`GROQ_MODEL`, `MISTRAL_MODEL`…). Ollama sur un petit serveur sans GPU (Render) n'est pas réaliste : utilisez-le sur votre propre machine, ou via un fournisseur hébergé.
+
 ## Démarrage rapide
 
 ```bash
