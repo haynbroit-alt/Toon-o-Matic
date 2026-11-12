@@ -8,3 +8,8 @@ episode:
   allowed_sets: [rue]
 cadence: {episodes_per_day: 1}
 studio: {cpu_launcher: inline, gpu_launcher: none}
+plates: {provider: draw}
+production:
+  tiers:
+    validation: {gpu: false, overrides: {animation: {renderer: puppet, resolution: [1280, 720]}}}
+    final: {gpu: false, overrides: {animation: {renderer: puppet, resolution: [1920, 1080]}}}

@@ -131,6 +131,9 @@ def ensure_plates(cfg: Config, set_ids: list[str] | None = None, force: bool = F
         prompt = ", ".join(x for x in (style_prefix, info.get("plate_prompt", sid)) if x)
         if provider == "http":
             _http_plate(pc, prompt, negative, out)
+        elif provider == "draw":
+            from .puppet import draw_plate
+            draw_plate(sid, info["color"], out)
         elif provider == "mock":
             _mock_plate(info["color"], info.get("label_fr", sid), out)
         else:

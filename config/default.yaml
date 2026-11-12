@@ -28,7 +28,8 @@ production:
       overrides:
         tts: {provider: piper, fallback: mock}
         lipsync: {provider: envelope}
-        animation: {renderer: preview, resolution: [854, 480]}
+        animation: {renderer: puppet, resolution: [854, 480]}   # marionnettes 2D : vrai dessin animé sur CPU
+        plates: {provider: draw}
         editing: {cutdown: {enabled: false}}
         package: {enabled: false}
         stickers: {enabled: false}
@@ -169,7 +170,7 @@ tts:
     api_key_env: ELEVENLABS_API_KEY
 
 plates:                       # décors 2D (styles avec backgrounds: plates)
-  provider: mock              # mock (dégradé de test) | http (serveur d'images) | none
+  provider: mock              # mock (dégradé de test) | draw (décors dessinés par le code) | http (serveur d'images) | none
   negative_prompt: "people, characters, text, watermark, logo, blurry"
   http:                       # défaut : API Automatic1111 / Forge ; adaptez pour ComfyUI, FLUX…
     url: http://localhost:7860/sdapi/v1/txt2img
@@ -181,7 +182,7 @@ lipsync:
   rhubarb_path: rhubarb       # https://github.com/DanielSWolf/rhubarb-lip-sync (binaire)
 
 animation:
-  renderer: preview           # preview (animatique FFmpeg, sans Blender) | blender
+  renderer: preview           # preview (blocs, test) | puppet (marionnettes 2D, CPU) | blender (3D)
   fps: 24
   resolution: [1920, 1080]
   blender:

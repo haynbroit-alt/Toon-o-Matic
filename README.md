@@ -146,6 +146,19 @@ Un personnage devient une marque quand le public l'**utilise** : il le cite, le 
 - Produit les packs WhatsApp (512×512, WebP < 100 Ko, icône 96×96, `contents.json`) et Telegram (PNG 512 px).
 - La bibliothèque grandit à chaque épisode ; le pack garde les 30 expressions les plus récentes.
 
+## Théâtre de marionnettes 2D : un vrai dessin animé, sans GPU ni modèle 3D
+
+`animation.renderer: puppet`. Les personnages sont **dessinés par le code** à partir de leur fiche (silhouette I / carré / O, couleurs signatures, accessoires), en vectoriel avec Cairo, puis animés d'après la même partition que le moteur 3D :
+- **rendu** : volumes ombrés en dégradé, contours encrés, vraies mains, yeux avec iris et reflets, nez caricatural, rides et reflet du crâne ;
+- **jeu** : bouche synchronisée sur les visèmes, expressions par émotion (sourcils, paupières, joues, visage qui rougit de colère), clignements, regards vers celui qui parle, respiration, hochements sur la voix ;
+- **gestes lissés** : parler avec les mains, pointer, hausser les épaules, facepalm (la main se pose vraiment sur le visage), colère, sursaut, rire, téléphone. Le passage d'un geste à l'autre prend environ 0,15 s au lieu de sauter ;
+- **mise en scène** : plans rapprochés comme dans les références (large, deux-plans, gros plan), lente poussée de caméra dans chaque plan, décor flouté et légèrement décalé derrière les personnages (profondeur de champ, parallaxe). En gros plan, on ne voit jamais de demi-visage coupé au bord ;
+- **formats verticaux re-tournés** en 9:16, caméra sur celui qui parle, au lieu d'un recadrage qui couperait les personnages ;
+- **décors dessinés** (`plates.provider: draw`) : rue pavillonnaire, salon, garage, épicerie, voiture ;
+- **stickers** : même dessin, sur fond transparent. Sans modèle branché, leur légende est une réplique fétiche du personnage, jamais une phrase coupée.
+
+Mesuré ici : un épisode pilote de 2 minutes, en FR et EN, en 1080p, avec déclinaisons et stickers, est produit en moins de 6 minutes sur processeur. Le jour où de vrais modèles 3D existeront, `renderer: blender` reprend la même partition sans rien changer d'autre.
+
 ## TOON CORE : l'IA écrit, l'usine fabrique, vous gardez le contrôle
 
 Aucun fournisseur d'IA n'est obligatoire. Un fournisseur ne s'ajoute que s'il apporte une vraie amélioration.

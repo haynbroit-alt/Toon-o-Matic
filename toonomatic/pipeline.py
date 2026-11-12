@@ -270,6 +270,10 @@ class Pipeline:
                 jobs.append((sl_path, mp4))
         if anim["renderer"] == "blender":
             blender_render.render_many(jobs, anim["blender"], int(anim["fps"]))
+        elif anim["renderer"] == "puppet":
+            from .animation import puppet
+            for sl_path, mp4 in jobs:
+                puppet.render_scene(load_json(sl_path), mp4)
         else:
             for sl_path, mp4 in jobs:
                 preview_render.render_scene(load_json(sl_path), mp4)
@@ -303,8 +307,9 @@ class Pipeline:
             colors = {k: v["color"] for k, v in self.cfg.cast["characters"].items()}
             vass = write_ass(make_cues(hl.lines, max_chars=24), d / f"short.{lang}.ass", st,
                              tuple(cut["resolution"]), offset=start, speaker_colors=colors)
-            short = make_cutdown(clean, start, end, d / f"{eid}_{lang}_short.mp4",
-                                 size=tuple(cut["resolution"]), ass=vass)
+            from .presence import vertical_clip
+            short = vertical_clip(self.cfg, self.epdir(eid), lang, hl, start, end, d / f"{eid}_{lang}_short.mp4",
+                                  tuple(cut["resolution"]), vass)
             deliverables.append({"lang": lang, "kind": "short", "title": script.title, "video": str(short),
                                  "srt": None, "srt_translated": []})
         self._done(eid, f"edit_{lang}", deliverables=deliverables)

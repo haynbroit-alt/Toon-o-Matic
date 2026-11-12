@@ -184,7 +184,7 @@ def review(cfg: Config, llm: LLM, ep_dir: Path, bible: dict[str, str], editorial
             {"histoire": None, "personnages": None, "notes": NOT_RATED, "fixes": []}
         s_sound, f_sound = check_sound(cfg, script)
         s_anim, f_anim = check_animation(ep_dir, lang, script,
-                                         real_animation=cfg.get("animation.renderer") == "blender")
+                                         real_animation=cfg.get("animation.renderer") in ("blender", "puppet"))
         s_pub, f_pub = check_publication(cfg, ep_dir, lang)
         scores = {"histoire": crit["histoire"], "personnages": crit["personnages"],
                   "animation": s_anim, "son": s_sound, "publication": s_pub}

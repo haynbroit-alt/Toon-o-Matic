@@ -75,6 +75,25 @@ def plan(cfg: Config, episode_dir: Path) -> list[dict]:
     return sorted(out, key=lambda x: -x["score"])
 
 
+def vertical_clip(cfg: Config, episode_dir: Path, lang: str, scene, a: float, b: float, out: Path,
+                  size: tuple[int, int], ass: Path | None) -> Path:
+    """Extrait vertical. Avec le théâtre de marionnettes, il est RE-TOURNÉ en 9:16, caméra sur celui
+    qui parle (un simple recadrage du 16:9 couperait les personnages des côtés) ; sinon, recadrage."""
+    clean = next((episode_dir / lang).glob("*_clean.mp4"))
+    sl = episode_dir / lang / "render" / f"{scene.id}.json"
+    if cfg.get("animation.renderer") != "puppet" or not sl.exists():
+        return make_cutdown(clean, a, b, out, size=size, ass=ass)
+    from .animation import puppet
+    pic = out.with_name(out.stem + "_pic.mp4")
+    puppet.render_scene(load_json(sl), pic, size=size, window=(a - scene.start, b - scene.start), follow_speaker=True)
+    vf = f"subtitles='{ffmpeg.escape_filter_path(ass)}'" if ass else "null"
+    ffmpeg.run(["-i", pic, "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", clean, "-map", "0:v", "-map", "1:a",
+                "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "160k", "-shortest", "-movflags", "+faststart", out])
+    pic.unlink(missing_ok=True)
+    return out
+
+
 def _clip(clean: Path, start: float, end: float, out: Path, ass: Path | None) -> Path:
     vf = f"subtitles='{ffmpeg.escape_filter_path(ass)}'" if ass else "null"
     ffmpeg.run(["-ss", f"{start:.3f}", "-to", f"{end:.3f}", "-i", clean, "-vf", vf, "-c:v", "libx264",
@@ -122,7 +141,7 @@ def build(cfg: Config, llm, episode_dir: Path, episode_id: str, scenes: list[str
                                 d / f"{kind}.ass", st, vert if vertical else res16, offset=a, speaker_colors=colors)
                 mp4 = d / f"{kind}.mp4"
                 if vertical:
-                    make_cutdown(clean, a, b, mp4, size=vert, ass=ass)
+                    vertical_clip(cfg, episode_dir, lang, sc, a, b, mp4, vert, ass)
                 else:
                     _clip(clean, a, b, mp4, ass)
                 peak = _peak_line(sc)

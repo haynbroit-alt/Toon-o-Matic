@@ -15,9 +15,14 @@ vault:
 workdir: /tmp/toonomatic/runs        # disque de travail jetable
 llm: {provider: auto, fallback: mock}     # modèles open source dont la clé est présente, puis Claude ; sinon mode démo
 tts: {provider: piper, fallback: mock}      # vraies voix gratuites sur CPU ; bips si les voix sont absentes
+plates: {provider: draw}                    # décors dessinés par le code (aucun serveur d'images requis)
+# Sans GPU ni modèles 3D, TOUS les niveaux utilisent le théâtre de marionnettes 2D : brouillon en 480p,
+# validation en 720p, final en 1080p. Passez `renderer: blender` au niveau final quand les modèles 3D existeront.
 production:
   tiers:
-    draft: {overrides: {tts: {provider: piper, fallback: mock}}}
+    draft: {gpu: false, overrides: {tts: {provider: piper, fallback: mock}}}
+    validation: {gpu: false, overrides: {animation: {renderer: puppet, resolution: [1280, 720]}, plates: {provider: draw}}}
+    final: {gpu: false, overrides: {animation: {renderer: puppet, resolution: [1920, 1080]}, plates: {provider: draw}}}
 studio:
   cpu_launcher: inline               # brouillons & validations : sur le serveur COMMAND (CPU)
   gpu_launcher: none                 # à activer seulement après validation de la chaîne en mode économique :

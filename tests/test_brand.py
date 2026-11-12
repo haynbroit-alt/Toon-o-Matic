@@ -39,9 +39,11 @@ def test_select_moments_prefers_meme_gestures_and_is_diverse():
 
 
 def test_captions_are_short_and_local():
-    caps = stickers.captions(MockLLM(), "fr", [{"character": "momo", "emotion": "smug", "action": "point",
-                                                 "line": "J'ai un plan génial les amis"}])
-    assert len(caps) == 1 and len(caps[0].split()) <= 4
+    m = {"character": "momo", "emotion": "smug", "action": "point", "line": "J'ai un plan génial les amis ce soir"}
+    caps = stickers.captions(MockLLM(), "fr", [m], {"momo": {"catchphrases": {"fr": ["J'ai un plan."]}}})
+    assert caps == ["J'ai un plan."]                                   # réplique fétiche, pas une phrase coupée
+    assert stickers.captions(MockLLM(), "en", [m], {}) == ["Nailed it."]
+    assert stickers.captions(MockLLM(), "fr", [{**m, "line": "Non."}], {}) == ["Non."]
 
 
 @needs_ffmpeg

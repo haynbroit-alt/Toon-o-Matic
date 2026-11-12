@@ -81,7 +81,25 @@ def select_moments(script: Script, n: int = 6, seen: set | None = None, scenes: 
     return out
 
 
-def captions(llm: LLM, lang: str, moments: list[dict]) -> list[str]:
+GENERIC = {"fr": {"angry": "Sérieux ?!", "surprised": "Pardon ?!", "smug": "Je gère.", "sarcastic": "Bien sûr…",
+                  "scared": "Au secours.", "happy": "Trop bien !", "sad": "Pourquoi moi ?", "neutral": "Hmm."},
+           "en": {"angry": "Seriously?!", "surprised": "Excuse me?!", "smug": "Nailed it.", "sarcastic": "Sure…",
+                  "scared": "Help.", "happy": "Brilliant!", "sad": "Why me?", "neutral": "Hmm."}}
+
+
+def _fallback_caption(cast: dict, lang: str, m: dict, i: int) -> str:
+    """Sans modèle : la réplique si elle est déjà courte, sinon une réplique fétiche du personnage
+    (elle renforce la marque), sinon une réaction générique selon l'émotion. Jamais une phrase coupée."""
+    words = m["line"].split()
+    if 1 <= len(words) <= 4:
+        return m["line"].strip()
+    phrases = ((cast.get(m["character"]) or {}).get("catchphrases") or {}).get(lang) or []
+    if phrases:
+        return phrases[i % len(phrases)]
+    return GENERIC.get(lang, GENERIC["en"]).get(m["emotion"], "…")
+
+
+def captions(llm: LLM, lang: str, moments: list[dict], cast: dict | None = None) -> list[str]:
     """Légendes ≤ 4 mots, réutilisables comme réaction en conversation (pas un résumé du gag)."""
     system = ("Tu écris des légendes de stickers de messagerie pour une série comique. Chaque légende fait 1 à 4 "
               "mots, se comprend hors contexte, et sert de réaction dans une conversation (« Non. », « J'ai un plan », "
@@ -89,21 +107,31 @@ def captions(llm: LLM, lang: str, moments: list[dict]) -> list[str]:
     user = f"LANGUE : {lang}\n" + "\n".join(f"{i + 1}. {m['character']} ({m['emotion']}, {m['action']}) : « {m['line']} »"
                                              for i, m in enumerate(moments)) + \
         "\n<context>" + json.dumps({"lang": lang, "lines": [m["line"] for m in moments]}, ensure_ascii=False) + "</context>"
+    from .writing.llm import MockLLM
     try:
+        if isinstance(llm, MockLLM):   # pas de vrai modèle : légendes de repli, jamais de texte factice
+            raise LLMError("aucun modèle branché")
         caps = llm.generate_json("sticker_caption", system, user, CAPTION_SCHEMA)["captions"]
     except LLMError as e:
         log.warning("légendes de stickers indisponibles : %s", e)
         caps = []
-    fallback = [" ".join(m["line"].split()[:4]).rstrip(",;:") or {"fr": "Non.", "en": "No."}.get(lang, "…")
-                for m in moments]
+    fallback = [_fallback_caption(cast or {}, lang, m, i) for i, m in enumerate(moments)]
     return [(c or f).strip()[:32] for c, f in zip(list(caps) + [""] * len(moments), fallback)]
 
 
 # --------------------------------------------------------------------------- rendu
 def render_pose(cfg: Config, character: str, emotion: str, action: str, work: Path) -> Path:
     """Le personnage seul, en gros plan, fond transparent, au sommet de son geste."""
-    from .animation.blender_render import run_still
     c = cfg.cast["characters"][character]
+    if cfg.get("animation.renderer") != "blender":   # théâtre de marionnettes : même personnage, sans 3D
+        from .animation import puppet
+        work.mkdir(parents=True, exist_ok=True)
+        img = puppet.still({"id": character, **c}, cfg.style, emotion, action, MOUTH.get(emotion, "C"),
+                           int((cfg.get("stickers") or {}).get("render_px", 768)))
+        out = work / "pose.png"
+        img.save(out)
+        return out
+    from .animation.blender_render import run_still
     lib = cfg.path(cfg["animation"]["blender"]["asset_library"])
     sc = cfg.get("stickers") or {}
     shot = {"episode_lang": "stickers", "scene_id": f"{character}-{emotion}-{action}", "duration": 1.0, "fps": 12,
@@ -197,7 +225,7 @@ def extract(cfg: Config, llm: LLM, episode_dir: Path, episode_id: str, n: int = 
                   or (same[0] if same else None))
             # jamais la réplique d'une autre langue : à défaut, la légende sera écrite par le LLM
             local.append({**m, "line": strip_tags(ln.text) if ln else ""})
-        caps[lang] = captions(llm, lang, local)
+        caps[lang] = captions(llm, lang, local, cfg.cast["characters"])
     new = []
     work = episode_dir / "_stickers_work"
     for i, m in enumerate(moments):
