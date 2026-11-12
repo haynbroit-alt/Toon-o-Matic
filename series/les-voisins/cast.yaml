@@ -22,8 +22,8 @@ characters:
     rig: momo.blend
     color: "#e8833a"
     voices:
-      fr: {xtts_speaker_wav: assets/voices/momo_fr.wav, chatterbox_ref: assets/voices/momo_fr.wav, bark_preset: v2/fr_speaker_1, elevenlabs_voice_id: "", mock_pitch: 180}
-      en: {xtts_speaker_wav: assets/voices/momo_en.wav, chatterbox_ref: assets/voices/momo_en.wav, bark_preset: v2/en_speaker_6, elevenlabs_voice_id: "", mock_pitch: 170}
+      fr: {piper_model: assets/piper/fr_FR-tom-medium.onnx, piper_pitch: 1.0, xtts_speaker_wav: assets/voices/momo_fr.wav, chatterbox_ref: assets/voices/momo_fr.wav, bark_preset: v2/fr_speaker_1, elevenlabs_voice_id: "", mock_pitch: 180}
+      en: {piper_model: assets/piper/en_GB-northern_english_male-medium.onnx, piper_pitch: 1.0, xtts_speaker_wav: assets/voices/momo_en.wav, chatterbox_ref: assets/voices/momo_en.wav, bark_preset: v2/en_speaker_6, elevenlabs_voice_id: "", mock_pitch: 170}
   lina:
     personality: [pragmatique, sarcastique, loyale malgré elle]
     catchphrases: {fr: ["Non.", "Je vais faire semblant de pas avoir entendu."], en: ["No.", "I'll pretend I didn't hear that."]}
@@ -43,8 +43,8 @@ characters:
     rig: lina.blend
     color: "#2f6fe0"
     voices:
-      fr: {xtts_speaker_wav: assets/voices/lina_fr.wav, chatterbox_ref: assets/voices/lina_fr.wav, bark_preset: v2/fr_speaker_2, elevenlabs_voice_id: "", mock_pitch: 260}
-      en: {xtts_speaker_wav: assets/voices/lina_en.wav, chatterbox_ref: assets/voices/lina_en.wav, bark_preset: v2/en_speaker_9, elevenlabs_voice_id: "", mock_pitch: 250}
+      fr: {piper_model: assets/piper/fr_FR-siwis-medium.onnx, piper_pitch: 1.0, xtts_speaker_wav: assets/voices/lina_fr.wav, chatterbox_ref: assets/voices/lina_fr.wav, bark_preset: v2/fr_speaker_2, elevenlabs_voice_id: "", mock_pitch: 260}
+      en: {piper_model: assets/piper/en_GB-alba-medium.onnx, piper_pitch: 1.0, xtts_speaker_wav: assets/voices/lina_en.wav, chatterbox_ref: assets/voices/lina_en.wav, bark_preset: v2/en_speaker_9, elevenlabs_voice_id: "", mock_pitch: 250}
   tonton:
     personality: [placide, roublard, généreux à sa façon]
     catchphrases: {fr: ["Je connais quelqu'un.", "Doucement, doucement."], en: ["I know a guy.", "Easy, easy."]}
@@ -64,8 +64,8 @@ characters:
     rig: tonton.blend
     color: "#5a8a3a"
     voices:
-      fr: {xtts_speaker_wav: assets/voices/tonton_fr.wav, chatterbox_ref: assets/voices/tonton_fr.wav, bark_preset: v2/fr_speaker_5, elevenlabs_voice_id: "", mock_pitch: 120}
-      en: {xtts_speaker_wav: assets/voices/tonton_en.wav, chatterbox_ref: assets/voices/tonton_en.wav, bark_preset: v2/en_speaker_3, elevenlabs_voice_id: "", mock_pitch: 115}
+      fr: {piper_model: assets/piper/fr_FR-gilles-low.onnx, piper_pitch: 0.94, xtts_speaker_wav: assets/voices/tonton_fr.wav, chatterbox_ref: assets/voices/tonton_fr.wav, bark_preset: v2/fr_speaker_5, elevenlabs_voice_id: "", mock_pitch: 120}
+      en: {piper_model: assets/piper/en_GB-alan-medium.onnx, piper_pitch: 0.92, xtts_speaker_wav: assets/voices/tonton_en.wav, chatterbox_ref: assets/voices/tonton_en.wav, bark_preset: v2/en_speaker_3, elevenlabs_voice_id: "", mock_pitch: 115}
 
 sets:
   # plate        : image 2D de fond (16:9, ≥ 1920 px), relative au dossier de la série. Générée si absente.

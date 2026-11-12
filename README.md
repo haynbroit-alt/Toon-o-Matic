@@ -146,6 +146,39 @@ Un personnage devient une marque quand le public l'**utilise** : il le cite, le 
 - Produit les packs WhatsApp (512×512, WebP < 100 Ko, icône 96×96, `contents.json`) et Telegram (PNG 512 px).
 - La bibliothèque grandit à chaque épisode ; le pack garde les 30 expressions les plus récentes.
 
+## TOON CORE : l'IA écrit, l'usine fabrique, vous gardez le contrôle
+
+Aucun fournisseur d'IA n'est obligatoire. Un fournisseur ne s'ajoute que s'il apporte une vraie amélioration.
+
+| Module | Rôle | Sans clé |
+|---|---|---|
+| Scénariste | écrit les épisodes | bureau d'écriture (copier-coller) ; modèle branché en option |
+| Directeur artistique | garde l'identité des personnages | bible, noyau, contrôle de marque |
+| **Vérificateur** | contrôle le scénario | règles sans IA (`writing/checker.py`) |
+| Voix | dit les dialogues | Piper sur CPU, une voix par personnage ; autres moteurs en option |
+| Animateur | anime les personnages | animatique, ou Blender |
+| Monteur | assemble l'épisode | FFmpeg |
+
+**Le vérificateur** s'exécute avant toute production, instantanément et gratuitement. Il contrôle :
+- la langue de chaque version, et que les deux versions ne sont pas le même texte ;
+- la distribution : personnage annoncé mais muet, personnage qui monopolise ;
+- les répliques trop longues pour être dites et sous-titrées ;
+- le jeu trop neutre, qui donnerait une animation plate ;
+- la durée, et l'écart entre FR et EN ;
+- les répliques fétiches dites par le mauvais personnage, ou usées ;
+- les termes interdits par la bible (`forbidden_terms` dans `series.yaml`) ;
+- une intrigue trop proche d'un épisode déjà diffusé.
+
+Un problème bloquant empêche de lancer ; un point « à revoir » est affiché et laisse le choix. Il ne juge pas si c'est drôle.
+
+**Quatre états à ne jamais confondre**, affichés séparément sur chaque épisode, chacun avec sa preuve :
+1. **Scénario écrit** : source du texte et résultat du vérificateur. Un texte de démonstration est marqué « FACTICE ».
+2. **Produit techniquement** : niveau atteint, notes du son et de l'image, voix réelles ou bips de remplacement.
+3. **Regardable** : seul un humain en décide, à la validation du niveau final.
+4. **Apprécié du public** : uniquement d'après des mesures d'audience importées ; « inconnu » tant qu'il n'y en a pas.
+
+**Voix gratuites** : l'image Docker installe Piper et télécharge six voix (trois par langue) avec `deploy/fetch_piper_voices.sh`. Si une voix manque, l'usine prend la voix par défaut de la langue, puis des bips, sans jamais planter. Vérifiez la licence de chaque voix avant une exploitation commerciale.
+
 ## Bureau d'écriture : un scénario de haute qualité, sans aucune clé
 
 Le scénario n'est que du texte : rien n'oblige à l'écrire dans l'usine. Depuis l'application mobile (*＋ Épisode* → *Bureau d'écriture*) :

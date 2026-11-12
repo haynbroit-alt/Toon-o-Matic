@@ -60,31 +60,49 @@ class MockTTS:
 
 
 class PiperTTS:
-    """Piper (open source, CPU) : voix « brouillon » pour juger le texte et le rythme sans GPU.
-    Une seule voix par langue ; chaque personnage est différencié par un décalage de hauteur."""
+    """Piper (open source, CPU, gratuit) : de vraies voix sans clé ni GPU.
+    Chaque personnage peut avoir sa propre voix (`piper_model` dans cast.yaml) ; à défaut, la voix
+    par défaut de la langue est utilisée avec un décalage de hauteur propre au personnage."""
+    SPEED = {"angry": 0.9, "surprised": 0.9, "scared": 0.88, "happy": 0.95, "sad": 1.12, "sarcastic": 1.06}
 
     def __init__(self, cfg: dict):
         import shutil
+
+        from ..config import ROOT
         self.sr = int(cfg.get("sample_rate", 48000))
         c = cfg.get("piper", {})
         self.exe = c.get("executable", "piper")
-        self.models = c.get("models", {})
+        self.root = ROOT
+        self.models = {l: self._path(m) for l, m in (c.get("models") or {}).items()}
         if not shutil.which(self.exe):
-            raise TTSError("piper introuvable (https://github.com/rhasspy/piper)")
+            raise TTSError("piper introuvable (pip install piper-tts)")
+        missing = [str(m) for m in self.models.values() if not m.exists()]
+        if missing or not self.models:
+            raise TTSError("voix Piper absentes (deploy/fetch_piper_voices.sh) : " + ", ".join(missing[:2]))
 
-    def synthesize(self, text, lang, voice, emotion, out):  # pragma: no cover - binaire externe
+    def _path(self, m) -> Path:
+        p = Path(m)
+        return p if p.is_absolute() else self.root / p
+
+    def synthesize(self, text, lang, voice, emotion, out):
         import subprocess
-        model = voice.get("piper_model") or self.models.get(lang)
-        if not model or not Path(model).exists():
-            raise TTSError(f"modèle Piper manquant pour {lang} : {model}")
+        own = self._path(voice["piper_model"]) if voice.get("piper_model") else None
+        if own is not None and own.exists():
+            model, factor = own, float(voice.get("piper_pitch", 1.0))
+        else:
+            model = self.models.get(lang)
+            factor = max(0.75, min(1.4, float(voice.get("mock_pitch", 180)) / 180))
+        if model is None:
+            raise TTSError(f"aucune voix Piper pour la langue {lang}")
         tmp = out.with_suffix(".raw.wav")
-        proc = subprocess.run([self.exe, "--model", str(model), "--output_file", str(tmp)],
-                              input=strip_tags(text), text=True, capture_output=True)
-        if proc.returncode != 0:
+        proc = subprocess.run([self.exe, "--model", str(model), "--output_file", str(tmp),
+                               "--length_scale", str(self.SPEED.get(emotion, 1.0))],
+                              input=strip_tags(text) or "…", text=True, capture_output=True)
+        if proc.returncode != 0 or not tmp.exists():
             raise TTSError(f"piper : {proc.stderr[-300:]}")
-        factor = max(0.7, min(1.5, float(voice.get("mock_pitch", 180)) / 180))
-        ffmpeg.run(["-i", tmp, "-af", f"asetrate=22050*{factor:.3f},aresample=22050,atempo={1 / factor:.3f}",
-                    "-ac", 1, "-ar", self.sr, "-sample_fmt", "s16", out])
+        af = "anull" if abs(factor - 1) < 0.02 else \
+            f"asetrate=22050*{factor:.3f},aresample=22050,atempo={1 / factor:.3f}"
+        ffmpeg.run(["-i", tmp, "-af", af, "-ac", 1, "-ar", self.sr, "-sample_fmt", "s16", out])
         tmp.unlink(missing_ok=True)
         return out
 

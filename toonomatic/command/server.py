@@ -200,6 +200,7 @@ def make_handler(cfg: Config, factory: Factory | None, token: str | None, locked
                     return self._json(404, {"error": "épisode inconnu"})
                 if rest == "":
                     ep["media"] = _media_list(factory, ep)
+                    ep["milestones"] = factory.milestones(ep)
                     man = factory.read_json(eid, "presence/manifest.json") or {}
                     ep["presence"] = [{**{k: v for k, v in a.items() if k not in ("video", "lines")},
                                        "src": f"/api/episodes/{eid}/media/" + urllib.parse.quote(
@@ -244,6 +245,8 @@ def make_handler(cfg: Config, factory: Factory | None, token: str | None, locked
                 if path == "/api/desk/import":
                     from ..writing.desk import DeskError
                     try:
+                        if body.get("dry_run"):
+                            return self._json(200, factory.desk_check(body.get("situation"), body.get("text", "")))
                         return self._json(202, factory.desk_import(body.get("situation"), body.get("text", ""),
                                                                    body.get("tier")))
                     except DeskError as e:

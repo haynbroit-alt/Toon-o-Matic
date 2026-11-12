@@ -14,6 +14,10 @@ vault:
     region: auto
 workdir: /tmp/toonomatic/runs        # disque de travail jetable
 llm: {provider: auto, fallback: mock}     # modèles open source dont la clé est présente, puis Claude ; sinon mode démo
+tts: {provider: piper, fallback: mock}      # vraies voix gratuites sur CPU ; bips si les voix sont absentes
+production:
+  tiers:
+    draft: {overrides: {tts: {provider: piper, fallback: mock}}}
 studio:
   cpu_launcher: inline               # brouillons & validations : sur le serveur COMMAND (CPU)
   gpu_launcher: none                 # à activer seulement après validation de la chaîne en mode économique :

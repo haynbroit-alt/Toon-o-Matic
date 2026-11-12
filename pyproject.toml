@@ -16,6 +16,7 @@ xtts = ["coqui-tts>=0.24"]
 bark = ["suno-bark"]
 chatterbox = ["chatterbox-tts"]
 cloud = ["boto3>=1.34"]
+piper = ["piper-tts>=1.2"]
 youtube = ["google-api-python-client>=2", "google-auth-oauthlib>=1"]
 dev = ["pytest>=8"]
 

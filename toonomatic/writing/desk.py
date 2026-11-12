@@ -211,10 +211,6 @@ def parse(cfg: Config, text: str, situation: dict, episode_id: str = "import") -
     if len(scenes_in) != p["scenes"]:
         warnings.append(f"{len(scenes_in)} scènes reçues pour {p['scenes']} demandées (accepté).")
     ep = cfg["episode"]
-    for l, s in scripts.items():
-        est = s.estimated_minutes(float(cfg["languages"][l]["words_per_minute"]))
-        if not float(ep["min_minutes"]) * 0.7 <= est <= float(ep["max_minutes"]) * 1.3:
-            warnings.append(f"Version {l} : durée estimée {est:.1f} min pour {float(ep['target_minutes']):g} min visées.")
     premise = Premise(id=episode_id, situation=situation["situation"],
                       logline=str(data.get("logline") or situation["situation"])[:400],
                       cast=sorted({c for b in beats for c in b.characters}), beats=beats,

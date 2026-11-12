@@ -129,7 +129,7 @@ async function renderEpisode(id) {
     ${ep.info.written_by === "bureau" ? `<div class="small muted">✍️ Scénario du bureau d'écriture${(ep.info.desk_warnings || []).map(w => " · " + esc(w)).join("")}</div>` : ""}
     ${langs.length > 1 ? `<div class="tabs">${langs.map(l => `<button class="btn small" data-l="${l}">${l.toUpperCase()}</button>`).join("")}</div>` : ""}
     ${videos || (busy ? "" : '<p class="muted">Pas encore de vidéo.</p>')}
-    ${presenceHtml(ep)}${scoresHtml(ep.director_report)}${actions}
+    ${milestonesHtml(ep)}${presenceHtml(ep)}${scoresHtml(ep.director_report)}${actions}
     <h2>Journal</h2><div class="card">${events || '<span class="muted small">—</span>'}</div>`;
   document.querySelectorAll("[data-l]").forEach(b => b.onclick = () => {
     document.querySelectorAll("[data-l]").forEach(x => x.classList.toggle("active", x === b));
@@ -196,22 +196,35 @@ async function renderDesk() {
       <textarea id="ans" rows="7" placeholder='{ "logline": … }'>${esc(d.answer || "")}</textarea>
       <div id="probs"></div>
       <label for="tier">Niveau de production</label><select id="tier">${tiers}</select>
-      <button class="btn ok block" id="imp">Vérifier et lancer la production</button>
+      <button class="btn primary block" id="chk">Vérifier le scénario (sans IA)</button>
+      <button class="btn ok block" id="imp" disabled>Lancer la production</button>
       <button class="btn block" id="rst">Recommencer avec une autre situation</button></div>`;
   const ans = document.getElementById("ans");
   ans.oninput = () => deskSave({ ...d, answer: ans.value });
   document.getElementById("cp").onclick = async () => toast(await copyText(d.brief) ? "Brief copié" : "Copie impossible : sélectionnez le texte à la main");
   document.getElementById("rst").onclick = () => { deskSave(null); renderDesk(); };
+  const post = async extra => {
+    const r = await fetch("/api/desk/import", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ situation: d.situation, text: ans.value, tier: document.getElementById("tier").value, ...extra }) });
+    return [r, await r.json().catch(() => ({}))];
+  };
+  const showProblems = data => document.getElementById("probs").innerHTML =
+    `<div class="fix small"><b>À corriger avant de lancer :</b>${(data.problems || [data.error]).map(x => `<div>• ${esc(x)}</div>`).join("")}</div>`;
+  document.getElementById("chk").onclick = async ev => {
+    ev.target.disabled = true;
+    const [r, data] = await post({ dry_run: true });
+    ev.target.disabled = false;
+    if (r.status === 401) { renderLogin(); return; }
+    if (!r.ok) { showProblems(data); document.getElementById("imp").disabled = true; return; }
+    document.getElementById("probs").innerHTML = findingsHtml(data);
+    document.getElementById("imp").disabled = !data.ok;
+  };
+  ans.addEventListener("input", () => document.getElementById("imp").disabled = true);
   document.getElementById("imp").onclick = async ev => {
     ev.target.disabled = true;
-    const r = await fetch("/api/desk/import", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ situation: d.situation, text: ans.value, tier: document.getElementById("tier").value }) });
-    const data = await r.json().catch(() => ({}));
+    const [r, data] = await post({});
     if (r.status === 401) { renderLogin(); return; }
-    if (r.status === 422) {
-      document.getElementById("probs").innerHTML = `<div class="fix small"><b>À corriger avant de lancer :</b>${data.problems.map(x => `<div>• ${esc(x)}</div>`).join("")}</div>`;
-      ev.target.disabled = false; return;
-    }
+    if (r.status === 422) { showProblems(data); return; }
     if (!r.ok) { toast(data.error || `Erreur ${r.status}`); ev.target.disabled = false; return; }
     deskSave(null);
     toast(data.warnings?.length ? "Lancé · " + data.warnings[0] : "Scénario accepté, production lancée");
@@ -219,6 +232,21 @@ async function renderDesk() {
   };
 }
 
+const MS_ICON = { ok: "✅", warn: "🟠", fail: "❌", pending: "⏳", unknown: "❔" };
+function milestonesHtml(ep) {
+  if (!ep.milestones) return "";
+  return `<div class="card"><div class="small muted" style="margin-bottom:6px">Quatre étapes à ne pas confondre</div>` +
+    ep.milestones.map((m, i) => `<div class="ms"><span>${MS_ICON[m.state] || "•"}</span><div><b>${i + 1}. ${esc(m.name)}</b>
+      <div class="small muted">${esc(m.detail)}</div></div></div>`).join("") + `</div>`;
+}
+function findingsHtml(rep) {
+  const lv = { "bloquant": "❌", "à revoir": "🟠", "info": "ℹ️" };
+  const rows = (rep.findings || []).map(f => `<div class="small">${lv[f.level] || "•"} <b>${esc(f.topic)}</b>${f.lang ? " · " + esc(f.lang) : ""} — ${esc(f.message)}</div>`).join("");
+  const warn = (rep.warnings || []).map(w => `<div class="small">ℹ️ ${esc(w)}</div>`).join("");
+  return `<div class="fix"><b>${rep.blocking ? "Scénario à corriger" : rep.to_review ? "Scénario utilisable, points à revoir" : "Scénario vérifié ✅"}</b>
+    <div class="small muted">${Object.entries(rep.titles || {}).map(([l, t]) => `${l.toUpperCase()} : « ${esc(t)} » (${rep.lines[l]} répliques)`).join(" · ")}</div>
+    ${rows}${warn}<div class="small muted" style="margin-top:4px">${esc(rep.scope || "")}</div></div>`;
+}
 const KIND = { scene: "Scène", reaction: "Réaction 10 s", short: "Short" };
 function presenceHtml(ep) {
   if (!ep.presence?.length) return "";

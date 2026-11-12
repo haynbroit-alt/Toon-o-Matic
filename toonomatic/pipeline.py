@@ -115,6 +115,11 @@ class Pipeline:
         Les étapes d'écriture sont marquées faites ; aucun modèle n'est appelé pour le texte."""
         from .writing import desk
         premise, scripts, metas, warnings = desk.parse(self.cfg, text, situation)  # lève DeskError si inexploitable
+        from .writing import checker
+        report = checker.check(self.cfg, premise, scripts)
+        if not report["ok"]:
+            raise desk.DeskError([f["message"] + (f" ({f['lang']})" if f["lang"] else "")
+                                  for f in report["findings"] if f["level"] == "bloquant"])
         day = dt.date.today().strftime("%Y%m%d")
         existing = {e["id"] for e in self.store.list()}
         n = 1
@@ -124,7 +129,7 @@ class Pipeline:
         premise.id = eid
         self.store.create(eid, situation["id"])
         self.store.update(eid, info={"tier": tier or self.base.get("production.default_tier", "final"),
-                                     "written_by": "bureau", "desk_warnings": warnings})
+                                     "written_by": "bureau", "desk_warnings": warnings, "script_check": report})
         d = self.epdir(eid)
         save_json(situation, d / "situation.json")
         save_json(premise, d / "premise.json")
@@ -229,6 +234,7 @@ class Pipeline:
             ln.visemes = lips.visemes(Path(ln.audio), ln.text, ln.envelope, fps)
         save_json(script, d / "script_timed.json")
         self._done(eid, f"voice_{lang}", **{f"duration_{lang}": round(total, 2),
+                                            "voice_engine": type(self.tts).__name__,
                                             f"tts_signature_{lang}": self.tts_signature()})
 
     def _subs(self, eid: str, lang: str) -> None:
@@ -437,6 +443,12 @@ class Pipeline:
     def _qa_and_review(self, eid: str) -> str:
         scripts = {l: Script.from_dict(load_json(self.epdir(eid) / l / "script_timed.json"))
                    for l in self.cfg.languages}
+        if "script_check" not in self.store.get(eid)["info"]:  # scénario écrit par un modèle : même contrôle
+            from .writing import checker
+            from .writing.llm import MockLLM
+            premise = Premise.from_dict(load_json(self.epdir(eid) / "premise.json"))
+            self.store.update(eid, info={"script_check": checker.check(self.cfg, premise, scripts),
+                                         "written_by": "démo" if isinstance(self.llm, MockLLM) else "modèle"})
         finals = {l: self.epdir(eid) / l / f"{eid}_{l}.mp4" for l in self.cfg.languages}
         qcfg = self.cfg.derive({"qa": {"llm_content_review": False}}) if self._no_model(eid) else self.cfg
         report = qa.evaluate(qcfg, self.llm, scripts, finals)

@@ -35,3 +35,5 @@ a{color:var(--pri)}.back{display:inline-block;padding:6px 0;text-decoration:none
 .prov{font-size:.72rem;padding:1px 6px;border-radius:6px;background:var(--line);color:var(--muted)}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .grid2 video{max-height:300px}
+.ms{display:grid;grid-template-columns:1.6em 1fr;gap:6px;padding:5px 0;border-top:1px solid var(--line)}
+.ms:first-of-type{border-top:0}

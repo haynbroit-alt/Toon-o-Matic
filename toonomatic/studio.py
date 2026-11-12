@@ -205,16 +205,81 @@ class Factory:
         return {"situation": sit, "brief": desk.brief(self.cfg, sit, load_lessons(self.cfg)),
                 "plan": desk.plan(self.cfg, sit)}
 
+    def _clean_situation(self, situation) -> dict:
+        if not isinstance(situation, dict) or not situation.get("situation"):
+            raise ValueError("situation manquante : préparez d'abord le brief")
+        return {"id": re.sub(r"[^a-z0-9-]+", "-", str(situation.get("id") or "idee").lower())[:40] or "idee",
+                "situation": str(situation["situation"])[:600],
+                **{k: situation[k] for k in ("cast", "sets") if isinstance(situation.get(k), list)}}
+
+    def desk_check(self, situation: dict, text: str) -> dict:
+        """Vérification à blanc : rien n'est créé. Lève DeskError si le texte est illisible."""
+        from .writing import checker, desk
+        sit = self._clean_situation(situation)
+        premise, scripts, _, warnings = desk.parse(self.cfg, text, sit)
+        return {**checker.check(self.cfg, premise, scripts), "warnings": warnings,
+                "titles": {l: s.title for l, s in scripts.items()},
+                "lines": {l: len(s.lines) for l, s in scripts.items()}}
+
+    def milestones(self, ep: dict) -> list[dict]:
+        """Quatre états à ne jamais confondre : écrit · produit · regardable · apprécié."""
+        info = ep.get("info", {})
+        tiers = self.tiers()
+        tier = info.get("tier")
+        final = bool(tiers) and tier == tiers[-1]
+        chk = info.get("script_check") or {}
+        by = info.get("written_by")
+        if not any(st.startswith("script_") for st in ep.get("stages", [])):
+            m1 = {"state": "pending", "detail": "pas encore écrit"}
+        elif by == "démo":
+            m1 = {"state": "fail", "detail": "texte FACTICE (mode démo, aucun modèle) : sert à tester la chaîne, pas à juger"}
+        else:
+            src = {"bureau": "bureau d'écriture", "modèle": "modèle branché"}.get(by, "écriture en cours de contrôle")
+            m1 = {"state": "ok" if chk.get("ok", True) and not chk.get("to_review") else "warn",
+                  "detail": f"{src} · vérificateur : {chk.get('blocking', 0)} bloquant, {chk.get('to_review', 0)} à revoir"
+                  if chk else src}
+        sc = (info.get("director") or {}).get("scores") or {}
+        beeps = info.get("voice_engine") == "MockTTS"
+        if ep["status"] == "failed":
+            m2 = {"state": "fail", "detail": "la production a échoué"}
+        elif ep["status"] in ("queued", "running") or not sc:
+            m2 = {"state": "pending", "detail": "production en cours" if ep["status"] in ("queued", "running") else "pas encore produit"}
+        else:
+            tech = [sc.get("son"), sc.get("animation")]
+            good = all(v is not None and v >= 6 for v in tech)
+            m2 = {"state": "ok" if good and final and not beeps else "warn" if good else "fail",
+                  "detail": f"niveau {tier} · son {sc.get('son')}/10 · image {sc.get('animation')}/10"
+                  + (" · voix : bips de remplacement" if beeps else "")
+                  + ("" if final else " · pas encore le rendu final")}
+        rev = (info.get("review") or {}).get("decision")
+        if ep["status"] == "rejected":
+            m3 = {"state": "fail", "detail": "rejeté par vous"}
+        elif ep["status"] in ("approved", "published") and final:
+            m3 = {"state": "ok", "detail": "validé par vous au niveau final"}
+        elif ep["status"] == "review":
+            m3 = {"state": "pending", "detail": "à vous de juger : seul un humain décide si c'est regardable"}
+        else:
+            m3 = {"state": "pending", "detail": "pas encore jugé" + (f" (dernière décision : {rev})" if rev else "")}
+        from .social import _jsonl, _mem, asset_catalog
+        mine = {a for a, v in asset_catalog(self.cfg).items() if v.get("episode") == ep["id"]}
+        ev = [e for e in _jsonl(_mem(self.cfg) / "social_events.jsonl")
+              if e["asset_id"] in mine and e["provenance"] == "measured"]
+        views = sum(e["value"] for e in ev if e["metric"] == "views")
+        if not ev:
+            m4 = {"state": "unknown", "detail": "inconnu : aucune mesure d'audience importée"}
+        else:
+            eng = sum(e["value"] for e in ev if e["metric"] in ("likes", "comments", "shares", "saves"))
+            m4 = {"state": "ok" if views >= 100 and eng / max(1, views) >= 0.05 else "warn",
+                  "detail": f"{int(views)} vues, {int(eng)} réactions (mesuré) — à comparer aux autres épisodes"}
+        names = ["Scénario écrit", "Produit techniquement", "Regardable", "Apprécié du public"]
+        return [{"name": n, **m} for n, m in zip(names, (m1, m2, m3, m4))]
+
     def desk_import(self, situation: dict, text: str, tier: str | None = None) -> dict:
         from .pipeline import Pipeline
         tier = tier or self.cfg.get("production.default_tier", "draft")
         if tier not in self.tiers():
             raise ValueError(f"niveau inconnu : {tier}")
-        if not isinstance(situation, dict) or not situation.get("situation"):
-            raise ValueError("situation manquante : préparez d'abord le brief")
-        sit = {"id": re.sub(r"[^a-z0-9-]+", "-", str(situation.get("id") or "idee").lower())[:40] or "idee",
-               "situation": str(situation["situation"])[:600],
-               **{k: situation[k] for k in ("cast", "sets") if isinstance(situation.get(k), list)}}
+        sit = self._clean_situation(situation)
         eid, warnings = Pipeline(self.cfg).import_script(sit, text, tier)
         if cloud(self.cfg):
             push_tree(self.vault, self.cfg.workdir / eid, _episode_prefix(eid))
