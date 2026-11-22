@@ -1,0 +1,122 @@
+# LES DÉGLINGUÉS — distribution. Quatre caricatures FICTIVES : des archétypes, jamais des personnes réelles.
+characters:
+  prez:
+    personality: [sûr de lui, allergique aux faits, adore les annonces]
+    catchphrases: {fr: ["Tout est sous contrôle.", "J'ai créé une commission."], en: ["Everything is under control.", "I have formed a committee."]}
+    look: "Rond, crâne dégarni, grosse moustache, costume bleu trop serré. Silhouette en poire."
+    kernel:
+      archetype: {fr: "le dirigeant qui annonce au lieu d'agir", en: "the leader who announces instead of acting"}
+      desire: {fr: "être applaudi avant d'avoir fait quoi que ce soit", en: "to be applauded before doing anything"}
+      fear: {fr: "qu'on lui demande un résultat", en: "being asked for a result"}
+      contradiction: {fr: "promet de tout simplifier en créant une commission de plus", en: "promises to simplify everything by creating one more committee"}
+      gimmick: {fr: "pointe le doigt vers l'horizon dès qu'il n'a pas de réponse", en: "points at the horizon whenever he has no answer"}
+    signature: {accessories: [moustache], outfit_color: "#27408b", hair: "#8a8a8a", skin: "#e2b08a", head_scale: 1.25,
+                build: {shape: pear, height: 1.0, width: 3.2, neck: -0.25}}
+    display: Le Président Toutvabien
+    bio_fr: "Président de quelque chose, on ne sait plus quoi. Annonce un plan par jour."
+    bio_en: "President of something, nobody remembers what. Announces one plan a day."
+    rig: prez.blend
+    color: "#27408b"
+    voices:
+      fr: {pocket_voice: jean, piper_model: assets/piper/fr_FR-gilles-low.onnx, piper_pitch: 0.94, mock_pitch: 120}
+      en: {piper_model: assets/piper/en_GB-alan-medium.onnx, piper_pitch: 0.92, mock_pitch: 115}
+  roxane:
+    personality: [survoltée, dramatise tout, ne finit jamais une information]
+    catchphrases: {fr: ["ALERTE !", "On me dit dans l'oreillette que…"], en: ["BREAKING!", "I'm being told in my earpiece…"]}
+    look: "Petite, chignon serré, lunettes rondes, tailleur rouge. Silhouette compacte."
+    kernel:
+      archetype: {fr: "la présentatrice de chaîne d'info en continu", en: "the rolling-news anchor"}
+      desire: {fr: "une alerte toutes les dix secondes", en: "a breaking alert every ten seconds"}
+      fear: {fr: "le silence à l'antenne", en: "dead air"}
+      contradiction: {fr: "annonce l'urgence absolue de sujets qu'elle n'a pas lus", en: "declares absolute urgency about stories she has not read"}
+      gimmick: {fr: "porte la main à l'oreillette et change de sujet au milieu d'une phrase", en: "touches her earpiece and changes topic mid-sentence"}
+    signature: {accessories: [round_glasses, bun], outfit_color: "#c62828", hair: "#1c1c1c", skin: "#f0c8a0", head_scale: 1.0,
+                build: {shape: block, height: 0.75, width: 2.2}}
+    display: Roxane Flash
+    bio_fr: "Présentatrice d'Info Panique, la chaîne où tout est grave, surtout rien."
+    bio_en: "Anchor at Panic News, the channel where everything is serious, especially nothing."
+    rig: roxane.blend
+    color: "#c62828"
+    voices:
+      fr: {pocket_voice: estelle, piper_model: assets/piper/fr_FR-siwis-medium.onnx, piper_pitch: 1.0, mock_pitch: 260}
+      en: {piper_model: assets/piper/en_GB-alba-medium.onnx, piper_pitch: 1.0, mock_pitch: 250}
+  kevin:
+    personality: [enthousiaste, hors-sol, résout tout avec une appli]
+    catchphrases: {fr: ["On va disrupter ça.", "J'ai une fusée pour ça."], en: ["Let's disrupt that.", "I have a rocket for that."]}
+    look: "Très grand, maigre, casquette noire, lunettes noires, sweat gris. Silhouette en longueur."
+    kernel:
+      archetype: {fr: "le milliardaire de la tech", en: "the tech billionaire"}
+      desire: {fr: "sauver l'humanité, de préférence avec abonnement", en: "to save humanity, preferably by subscription"}
+      fear: {fr: "qu'un problème se règle sans technologie", en: "a problem being solved without technology"}
+      contradiction: {fr: "veut coloniser Mars mais ne sait pas prendre le bus", en: "wants to colonise Mars but cannot take a bus"}
+      gimmick: {fr: "sort son téléphone et lance une appli pour chaque problème", en: "pulls out his phone and launches an app for every problem"}
+    signature: {accessories: [cap, sunglasses], outfit_color: "#6b6f76", hair: "#111111", skin: "#f1d3b8", head_scale: 1.05,
+                build: {shape: column, height: 1.5, width: 0.7}}
+    display: Kévin Zillion
+    bio_fr: "Milliardaire de la tech. A une solution pour tout, sauf pour les questions simples."
+    bio_en: "Tech billionaire. Has a solution for everything except simple questions."
+    rig: kevin.blend
+    color: "#6b6f76"
+    voices:
+      fr: {piper_model: assets/piper/fr_FR-tom-medium.onnx, piper_pitch: 1.04, mock_pitch: 180}
+      en: {piper_model: assets/piper/en_GB-northern_english_male-medium.onnx, piper_pitch: 1.04, mock_pitch: 170}
+  ginette:
+    personality: [lucide, pince-sans-rire, a déjà tout vu]
+    catchphrases: {fr: ["De mon temps, on appelait ça une bêtise.", "Et sinon, concrètement ?"], en: ["In my day we called that nonsense.", "And in practice?"]}
+    look: "Petite, ronde, gilet vert, cabas à la main. Silhouette carrée."
+    kernel:
+      archetype: {fr: "la citoyenne qui pose la question simple", en: "the citizen who asks the simple question"}
+      desire: {fr: "une réponse claire, une seule", en: "one clear answer, just one"}
+      fear: {fr: "rater son bus à cause d'un discours", en: "missing her bus because of a speech"}
+      contradiction: {fr: "ne croit plus personne, mais écoute tout le monde jusqu'au bout", en: "believes no one, yet hears everyone out"}
+      gimmick: {fr: "hausse les épaules et ramène tout au prix du pain", en: "shrugs and brings everything back to the price of bread"}
+    signature: {accessories: [], outfit_color: "#3f7d4e", hair: "#d9d9d9", skin: "#e8c4a8", head_scale: 1.1,
+                build: {shape: block, height: 0.7, width: 2.6}}
+    display: Mamie Ginette
+    bio_fr: "Retraitée. Seule personne du pays à lire les textes jusqu'au bout."
+    bio_en: "Retired. The only person in the country who reads things to the end."
+    rig: ginette.blend
+    color: "#3f7d4e"
+    voices:
+      fr: {piper_model: assets/piper/fr_FR-siwis-medium.onnx, piper_pitch: 0.9, mock_pitch: 200}
+      en: {piper_model: assets/piper/en_GB-alba-medium.onnx, piper_pitch: 0.9, mock_pitch: 200}
+
+sets:
+  # plate        : image 2D de fond (16:9, ≥ 1920 px), relative au dossier de la série. Générée si absente.
+  # plate_prompt : description pour le générateur d'images (le style de la série est ajouté automatiquement).
+  # blend        : décor 3D optionnel (prioritaire si backgrounds: sets).
+  rue:      {blend: street.blend, plate: plates/rue.png, color: "#5b5f73", label_fr: "Devant le Palais", label_en: "Outside the Palace",
+             plate_prompt: "quiet suburban street, white houses with red tiled roofs, green hedges, brick garden wall, lamp post, bright blue sky"}
+  salon:    {blend: living.blend, plate: plates/salon.png, color: "#8a6f5a", label_fr: "Le plateau d'Info Panique", label_en: "The Panic News studio",
+             plate_prompt: "cosy modest living room, old sofa, low table, patterned rug, window with daylight, family photos"}
+  voiture:  {blend: car.blend, plate: plates/voiture.png, color: "#4b6b5b", label_fr: "La voiture", label_en: "The car",
+             plate_prompt: "interior of an old taxi seen from the back seat, worn brown seats, dashboard ornament, city through the windshield"}
+  garage:   {blend: garage.blend, plate: plates/garage.png, color: "#6b5b4b", label_fr: "Le garage", label_en: "The garage",
+             plate_prompt: "small car repair garage, red lift post, stacked tyres, metal shelves with oil cans, tool wall"}
+  epicerie: {blend: shop.blend, plate: plates/epicerie.png, color: "#7a5b7a", label_fr: "L'épicerie", label_en: "The corner shop",
+             plate_prompt: "tiny neighbourhood grocery store at night, crowded shelves, neon sign, counter with cash register"}
+
+# Bibliothèque d'animations pré-enregistrées (actions NLA dans les rigs).
+# Le LLM ne peut choisir QUE parmi ces clés : c'est ce qui rend la 3D pilotable par le texte.
+actions:
+  idle: "Debout, respiration"
+  talk: "Parle normalement"
+  talk_hands: "Parle en agitant les bras"
+  angry: "S'énerve, poings serrés"
+  facepalm: "Se tape le front"
+  laugh: "Éclate de rire"
+  shrug: "Hausse les épaules"
+  point: "Montre du doigt"
+  sit: "Assis"
+  drive: "Conduit"
+  walk_in: "Entre dans le champ"
+  walk_out: "Sort du champ"
+  phone: "Au téléphone"
+  shocked: "Sursaute, choqué"
+
+emotions: [neutral, happy, angry, sad, surprised, sarcastic, scared, smug]
+
+# Visèmes (Rhubarb Lip Sync, notation Preston Blair) → shape keys des rigs : viseme_A … viseme_X
+#   A: m/b/p (bouche fermée)  B: k/s/t/ee  C: e/a ouvert  D: a grand ouvert  E: o arrondi
+#   F: u/oo/w  G: f/v  H: l (langue)  X: repos
+visemes: [A, B, C, D, E, F, G, H, X]

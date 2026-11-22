@@ -1,0 +1,10 @@
+# Banque de thèmes intemporels (un par séquence d'une minute). Les thèmes du jour viennent des flux d'actualité,
+# puis sont réécrits en thème général : jamais de nom propre.
+- {id: commission-pluie, situation: "Il pleut depuis trois semaines. Le Président annonce une commission sur la pluie, Kévin veut déplacer les nuages par abonnement.", cast: [prez, roxane, kevin, ginette], sets: [rue]}
+- {id: panne-geante, situation: "Une panne informatique bloque tout le pays. Personne ne sait quel bouton a été pressé, tout le monde a un coupable.", cast: [prez, roxane, kevin, ginette], sets: [salon]}
+- {id: sommet-mondial, situation: "Un sommet mondial se termine par un accord historique : se revoir l'an prochain.", cast: [prez, roxane, ginette], sets: [rue]}
+- {id: reforme-simplification, situation: "La grande réforme de simplification fait 900 pages et nécessite trois nouveaux formulaires.", cast: [prez, roxane, ginette], sets: [salon]}
+- {id: prix-du-pain, situation: "Les prix montent. Chaque expert explique que c'est normal, sauf pour la baguette de Ginette.", cast: [roxane, kevin, ginette], sets: [salon]}
+- {id: fuite-de-documents, situation: "Des documents confidentiels ont fuité. On découvre qu'ils étaient déjà affichés à l'accueil.", cast: [prez, roxane, ginette], sets: [rue]}
+- {id: canicule-appli, situation: "Canicule record. Kévin lance une appli qui vous dit qu'il fait chaud.", cast: [roxane, kevin, ginette], sets: [rue]}
+- {id: tricherie-examen, situation: "Scandale de triche à un grand examen : le sujet portait sur l'honnêteté.", cast: [prez, roxane, ginette], sets: [salon]}

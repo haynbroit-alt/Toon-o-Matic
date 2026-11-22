@@ -1,0 +1,20 @@
+# LES DÉGLINGUÉS : séquences d'une minute, CPU, 0 €.
+#   toonomatic -c config/deglingues.yaml serve      (studio)   ·   produce --count 1 --tier final
+series: series/les-deglingues
+episode:
+  target_minutes: 1
+  min_minutes: 0.75
+  max_minutes: 1.4
+  minutes_per_scene: 0.25
+  allowed_sets: [rue, salon]
+ideas:
+  bank: series/les-deglingues/situations.yaml
+  trend_feeds: []             # l'actualité brute cite des personnes réelles : un humain la réécrit en thème avant usage
+studio: {cpu_launcher: inline, gpu_launcher: none}
+plates: {provider: draw}
+tts: {provider: pocket, fallback: piper}
+production:
+  default_tier: final
+  tiers:
+    validation: {gpu: false, overrides: {animation: {renderer: puppet, resolution: [1280, 720]}}}
+    final: {gpu: false, overrides: {animation: {renderer: puppet, resolution: [1920, 1080]}}}
