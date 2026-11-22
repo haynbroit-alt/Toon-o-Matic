@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Lance une commande en gardant son journal COMPLET sur disque et son code de sortie EXACT.
+# Affiche un résumé borné (< 8 000 caractères : sous le plafond des échecs, ~10 000) : code, taille,
+# chemin du journal complet, premières lignes d'erreur si échec, dernières lignes. Sort avec le code reçu.
+# Usage : .claude/bin/journal <étiquette> <commande> [arguments…]
+#   Chaîne de commandes : .claude/bin/journal verif bash -o pipefail -c 'a && b'
+set -u
+etiquette=${1:?"étiquette requise"}
+shift
+if [ "$#" -eq 0 ]; then echo "[journal] commande manquante" >&2; exit 2; fi
+dossier=${JOURNAL_DIR:-${TMPDIR:-/tmp}/journaux}
+mkdir -p "$dossier"
+log="$dossier/${etiquette//[^A-Za-z0-9._-]/_}-$(date +%Y%m%dT%H%M%S)-$$.log"
+"$@" >"$log" 2>&1
+rc=$?
+echo "[journal] code=$rc lignes=$(wc -l <"$log") octets=$(wc -c <"$log") complet=$log"
+if [ "$rc" -ne 0 ]; then
+  echo "[journal] premières lignes d'erreur :"
+  grep -n -m 15 -i -E "error|erreur|fail|traceback|exception|assert" "$log" | cut -c1-160
+fi
+echo "[journal] 25 dernières lignes :"
+tail -n 25 "$log" | cut -c1-160
+echo "[journal] code=$rc (journal complet : $log)"
+exit "$rc"

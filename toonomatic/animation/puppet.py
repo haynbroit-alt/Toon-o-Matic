@@ -646,7 +646,8 @@ class VectorStage:
         tgt = T.target_pose(spec, action, t, phase_t, amp)
         k = 1.0 if dt is None or dt <= 0 or dt > 0.5 else min(1.0, dt * 9.0)   # ~0,15 s pour changer de geste
         self.pose[cid] = T.smooth(self.pose.get(cid) if dt is not None else None, tgt, k)
-        return {"emotion": emo, "viseme": vis, "blink": blink, "look": look, "pose": self.pose[cid], "t": t, "amp": amp}
+        return {"emotion": emo, "viseme": vis, "blink": blink, "look": look, "pose": self.pose[cid], "t": t, "amp": amp,
+                "action": action}
 
     def frame(self, t: float) -> Image.Image:
         import cairo
@@ -688,7 +689,7 @@ def _vector_still(char: dict, style: dict, emotion: str, action: str, viseme: st
     ctx = cairo.Context(surf)
     pose = T.target_pose(spec, action, 0.4, 0.4, 0.6)
     st = {"emotion": emotion, "viseme": viseme, "blink": False, "look": 1, "pose": pose, "t": 0.3, "amp": 0.6,
-          "no_shadow": True}
+          "no_shadow": True, "action": action}
     ctx.translate(W / 2, H - 0.12 * u)
     T.draw_character(ctx, spec, st, u)
     surf.flush()

@@ -104,18 +104,26 @@ def tube(ctx, pts, width, color, lw):
 # --------------------------------------------------------------------------- pièces du visage
 VISEME = {"A": (0.30, 0.00), "B": (0.34, 0.09), "C": (0.34, 0.19), "D": (0.37, 0.31), "E": (0.22, 0.25),
           "F": (0.15, 0.16), "G": (0.31, 0.07), "H": (0.31, 0.23), "X": (0.30, 0.00)}
-BROWS = {"angry": ((0.02, -0.16), (0.02, 0.16)), "sad": ((-0.05, 0.12), (-0.05, -0.12)),
-         "surprised": ((-0.2, 0.0), (-0.2, 0.0)), "scared": ((-0.17, 0.1), (-0.17, -0.1)),
-         "sarcastic": ((0.03, 0.0), (-0.18, 0.06)), "smug": ((0.02, 0.0), (-0.12, 0.07)),
-         "happy": ((-0.07, 0.0), (-0.07, 0.0)), "neutral": ((0.0, 0.0), (0.0, 0.0))}
-MOUTH_CURVE = {"happy": 0.15, "smug": 0.09, "sad": -0.11, "angry": -0.09, "sarcastic": 0.05, "scared": -0.05}
+BROWS = {"angry": ((0.07, -0.24), (0.07, 0.24)), "sad": ((-0.08, 0.2), (-0.08, -0.2)),
+         "surprised": ((-0.27, 0.0), (-0.27, 0.0)), "scared": ((-0.22, 0.17), (-0.22, -0.17)),
+         "sarcastic": ((0.05, 0.0), (-0.24, 0.08)), "smug": ((0.03, 0.0), (-0.16, 0.09)),
+         "happy": ((-0.13, -0.05), (-0.13, 0.05)), "neutral": ((0.0, 0.0), (0.0, 0.0))}
+MOUTH_CURVE = {"happy": 0.3, "smug": 0.14, "sad": -0.24, "angry": -0.18, "sarcastic": 0.08, "scared": -0.12}
 
 
 def draw_eye(ctx, ex, ey, r, k, st, lw, skin, look):
     emo = st["emotion"]
     wide = emo in ("surprised", "scared")
     lid = 0.0 if wide else 0.45 if emo in ("sarcastic", "smug") else 0.32 if emo in ("angry", "sad") else 0.12
-    rx, ry = 0.19 * r * k, (0.27 if wide else 0.23) * r * k
+    rx, ry = 0.19 * r * k, (0.3 if wide else 0.23) * r * k
+    if st.get("action") == "laugh" and not st["blink"]:   # rire : yeux plissés, en arc vers le haut
+        ctx.set_source_rgb(*INK)
+        ctx.set_line_width(lw * 1.9)
+        ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+        ctx.move_to(ex - rx, ey + ry * 0.25)
+        ctx.curve_to(ex - rx * 0.4, ey - ry * 0.55, ex + rx * 0.4, ey - ry * 0.55, ex + rx, ey + ry * 0.25)
+        ctx.stroke()
+        return
     if st["blink"]:
         ctx.set_source_rgb(*ink_of(skin))
         ctx.set_line_width(lw * 1.6)
@@ -165,7 +173,22 @@ def draw_mouth(ctx, mx, my, r, st, lw, skin):
     w, o = VISEME.get(st["viseme"], VISEME["X"])
     w *= r
     lip = darken(mix(skin, (0.75, 0.3, 0.3), 0.45), 0.25)
+    emo = st["emotion"]
+    if st.get("action") == "laugh":   # rire : bouche grande ouverte même entre deux syllabes
+        w, o = max(w, 0.36 * r), max(o, 0.24)
+    elif o <= 0.001 and emo == "surprised":   # bouche bée
+        ellipse(ctx, mx, my + 0.03 * r, 0.1 * r, 0.13 * r)
+        ctx.set_source_rgb(0.32, 0.07, 0.09)
+        ctx.fill_preserve()
+        ctx.set_source_rgb(*lip)
+        ctx.set_line_width(lw * 1.3)
+        ctx.stroke()
+        return
     if o <= 0.001:
+        if emo == "happy":
+            w *= 1.25
+        elif emo == "scared":   # lèvres qui tremblent
+            my += 0.012 * r * math.sin(st.get("t", 0.0) * 38)
         c = MOUTH_CURVE.get(st["emotion"], 0.02) * r
         ctx.set_source_rgb(*lip)
         ctx.set_line_width(lw * 1.7)
@@ -179,7 +202,7 @@ def draw_mouth(ctx, mx, my, r, st, lw, skin):
             ctx.stroke()
         return
     o *= r
-    curve = MOUTH_CURVE.get(st["emotion"], 0.0) * r * 0.5
+    curve = MOUTH_CURVE.get(st["emotion"], 0.0) * r * 0.75
     ctx.move_to(mx - w, my - curve)
     ctx.curve_to(mx - w * 0.5, my - o * 0.55, mx + w * 0.5, my - o * 0.55, mx + w, my - curve)
     ctx.curve_to(mx + w * 0.6, my + o * 1.15, mx - w * 0.6, my + o * 1.15, mx - w, my - curve)
@@ -410,9 +433,13 @@ def draw_character(ctx, spec, st, u):
         smooth_path(ctx, hp)
         ctx.set_source_rgba(*flush, 0.18)
         ctx.fill()
+    if st["emotion"] == "scared":   # peur : le visage pâlit
+        smooth_path(ctx, hp)
+        ctx.set_source_rgba(0.75, 0.85, 0.95, 0.3)
+        ctx.fill()
     if st["emotion"] in ("happy", "smug") or hairstyle == "bun":   # joues
         ellipse(ctx, 0.62 * R, 0.35 * R, 0.17 * R, 0.1 * R)
-        ctx.set_source_rgba(0.95, 0.45, 0.45, 0.28)
+        ctx.set_source_rgba(0.95, 0.45, 0.45, 0.5 if st["emotion"] == "happy" else 0.28)
         ctx.fill()
     # rides du front (tonton) / barbe naissante
     if hairstyle == "bald":
@@ -442,6 +469,22 @@ def draw_character(ctx, spec, st, u):
         ctx.move_to(ex - 0.2 * R * k, by + sl * R)
         ctx.curve_to(ex - 0.05 * R, by + sl * R * 0.3 - 0.04 * R, ex + 0.08 * R, by - sl * R * 0.3 - 0.04 * R,
                      ex + 0.22 * R * k, by - sl * R)
+        ctx.stroke()
+    # larmes (tristesse) : une goutte coule sous chaque œil, en boucle ; sueur (peur) sur la tempe
+    drops = []
+    if st["emotion"] == "sad":
+        fall = (st.get("t", 0.0) * 0.6) % 1.0
+        drops = [(ex + 0.05 * R * k, ey + (0.3 + 0.55 * fall) * R, 0.055 * R * k, 1.0 - 0.7 * fall) for ex, ey, k in eyes]
+    elif st["emotion"] == "scared":
+        drops = [(-0.3 * R, (-0.05 + 0.3 * ((st.get("t", 0.0) * 0.8) % 1.0)) * R, 0.07 * R, 0.9)]
+    for dx, dy_, dr, alpha in drops:
+        ctx.move_to(dx, dy_ - dr * 1.9)
+        ctx.curve_to(dx + dr * 1.3, dy_ - dr * 0.2, dx + dr, dy_ + dr, dx, dy_ + dr)
+        ctx.curve_to(dx - dr, dy_ + dr, dx - dr * 1.3, dy_ - dr * 0.2, dx, dy_ - dr * 1.9)
+        ctx.set_source_rgba(0.55, 0.8, 1.0, 0.9 * alpha)
+        ctx.fill_preserve()
+        ctx.set_source_rgba(0.15, 0.4, 0.75, alpha)
+        ctx.set_line_width(lw * 0.7)
         ctx.stroke()
     # lunettes
     if "sunglasses" in acc:

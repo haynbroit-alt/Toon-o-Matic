@@ -1,0 +1,31 @@
+# BIBLE DE SÉRIE — LES DÉGLINGUÉS, émission satirique animée inspirée de l'actualité.
+slug: les-deglingues
+title: {fr: "Les Déglingués", en: "The Unhinged"}
+logline:
+  fr: "Chaque jour, quatre caricatures passent l'actualité à la moulinette : tout le monde a un avis, personne n'a lu le dossier."
+  en: "Every day four caricatures put the news through the wringer: everyone has an opinion, nobody has read the file."
+universe: >
+  Un pays imaginaire qui ressemble à tous les autres : un Palais où l'on annonce, un plateau de chaîne d'info
+  où l'on s'affole, un milliardaire qui veut tout réparer avec une appli, et une retraitée qui pose la seule
+  bonne question. On part d'un THÈME de l'actualité (une pénurie, une réforme, une panne, un sommet, une
+  canicule), jamais d'une personne : l'épisode doit rester drôle dans cinq ans.
+tone:
+  fr: "Satire absurde et bon enfant. On se moque du pouvoir, des médias, de l'argent et de nos propres réflexes, jamais des victimes."
+  en: "Absurd, good-natured satire. We mock power, media, money and our own reflexes, never the victims."
+rules:                        # règles intangibles
+  - "Aucune personne réelle, aucun parti, aucune marque : seulement des archétypes fictifs. Aucun nom propre de l'actualité."
+  - "On traite un thème, pas un fait divers : jamais de drame humain, de victime, de procès en cours ni d'accusation."
+  - "Aucune imitation de voix ou d'apparence d'une personne existante."
+  - "Pas de moquerie sur l'origine, la religion, le handicap, le genre ou l'orientation."
+  - "Aucune fausse information présentée comme vraie : l'absurde doit être évident."
+  - "Le Président annonce toujours une commission. Roxane ne finit jamais une alerte. Kévin a toujours une appli. Ginette a toujours le dernier mot."
+style: caricature             # préréglage dans styles/<nom>.yaml (toon | soft3d | clay | caricature)
+style_overrides: {}           # ex. {palette: {key_light: "#ffd9a8"}}
+music:
+  theme: assets/music/theme_loop.mp3
+episode_format:
+  cold_open: true             # gag d'ouverture avant le générique
+  title_card_seconds: 3
+memory:
+  continuity_file: memory/continuity.jsonl   # faits établis par les épisodes publiés
+  max_facts_in_prompt: 25

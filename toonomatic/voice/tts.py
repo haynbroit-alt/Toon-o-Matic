@@ -7,6 +7,8 @@ Tous les fournisseurs produisent un WAV mono 16 bits au taux `tts.sample_rate`.
                d'« exagération » émotionnelle — idéal pour le jeu comique).
 - http       : n'importe quel serveur TTS auto-hébergé (Fish Speech / OpenAudio, F5-TTS,
                CosyVoice, Zonos…) via un gabarit de requête configurable.
+- pocket     : PocketTTS (Kyutai, moteur CPU de VoiceStudio) pour les personnages qui ont une
+               `pocket_voice`, Piper pour les autres.
 - elevenlabs : API cloud (optionnelle, pour ne pas en dépendre).
 - mock       : "babillage" synthétique FFmpeg dont la durée suit la longueur du texte.
 """
@@ -103,6 +105,56 @@ class PiperTTS:
         af = "anull" if abs(factor - 1) < 0.02 else \
             f"asetrate=22050*{factor:.3f},aresample=22050,atempo={1 / factor:.3f}"
         ffmpeg.run(["-i", tmp, "-af", af, "-ac", 1, "-ar", self.sr, "-sample_fmt", "s16", out])
+        tmp.unlink(missing_ok=True)
+        return out
+
+
+class PocketTTS:
+    """PocketTTS (Kyutai, moteur CPU de VoiceStudio) + Piper : les deux à la fois.
+    Un personnage qui a `pocket_voice` dans cast.yaml (voix du catalogue : estelle, jean, alba…)
+    parle avec PocketTTS ; les autres parlent avec Piper. Code MIT, poids CC-BY 4.0 (usage
+    commercial permis, crédit requis). Le catalogue s'utilise sans compte ; le clonage d'une voix
+    exige un compte Hugging Face et n'est pas utilisé ici."""
+    LANGS = {"fr": "french", "en": "english", "de": "german", "es": "spanish", "it": "italian",
+             "pt": "portuguese", "nl": "dutch"}
+
+    def __init__(self, cfg: dict):
+        try:
+            from pocket_tts import TTSModel
+        except ImportError as e:
+            raise TTSError("pocket-tts absent (pip install pocket-tts)") from e
+        self.sr = int(cfg.get("sample_rate", 48000))
+        self.model_cls = TTSModel
+        self.models: dict = {}
+        self.states: dict = {}
+        try:
+            self.piper: PiperTTS | None = PiperTTS(cfg)
+        except TTSError as e:
+            log.warning("Piper indisponible (%s) : seuls les personnages PocketTTS ont une voix", e)
+            self.piper = None
+
+    def synthesize(self, text, lang, voice, emotion, out):
+        name = voice.get("pocket_voice")
+        if not name:
+            if self.piper is None:
+                raise TTSError("ni voix PocketTTS pour ce personnage, ni Piper")
+            return self.piper.synthesize(text, lang, voice, emotion, out)
+        if lang not in self.LANGS:
+            raise TTSError(f"PocketTTS ne parle pas la langue {lang}")
+        if lang not in self.models:  # un modèle par langue, chargé une fois
+            self.models[lang] = self.model_cls.load_model(language=self.LANGS[lang])
+        model = self.models[lang]
+        if (lang, name) not in self.states:
+            self.states[(lang, name)] = model.get_state_for_audio_prompt(name)
+        audio = model.generate_audio(self.states[(lang, name)], strip_tags(text) or "…")
+        samples = audio.reshape(-1).clamp(-1, 1).mul(32767).short().tolist()
+        tmp = out.with_suffix(".raw.wav")
+        with wave.open(str(tmp), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(int(model.sample_rate))
+            w.writeframes(array.array("h", samples).tobytes())
+        _to_wav(tmp, out, self.sr)
         tmp.unlink(missing_ok=True)
         return out
 
@@ -263,7 +315,7 @@ class ElevenLabsTTS:
         return out
 
 
-PROVIDERS = {"mock": MockTTS, "piper": PiperTTS, "xtts": XTTS, "bark": BarkTTS,
+PROVIDERS = {"mock": MockTTS, "piper": PiperTTS, "pocket": PocketTTS, "xtts": XTTS, "bark": BarkTTS,
              "chatterbox": ChatterboxTTS, "http": HttpTTS, "elevenlabs": ElevenLabsTTS}
 
 
