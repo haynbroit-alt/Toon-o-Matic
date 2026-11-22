@@ -135,3 +135,64 @@ def test_piper_voice_per_character_with_fallbacks(cfg, tmp_path):
         tts.synthesize("Hello", "en", {}, "neutral", tmp_path / "c.wav")   # pas de voix anglaise
     conf["piper"]["models"] = {"fr": str(tmp_path / "manquante.onnx")}
     assert isinstance(make_tts(conf), MockTTS)                             # voix non téléchargées → bips, sans planter
+
+
+@needs_ffmpeg
+def test_pocket_and_piper_share_the_cast(tmp_path, monkeypatch):
+    """PocketTTS (VoiceStudio) parle pour les personnages qui ont `pocket_voice`, Piper pour les autres."""
+    import sys
+    import types
+
+    from toonomatic.voice.tts import PocketTTS, TTSError, make_tts
+    calls = []
+
+    class Audio:  # imite la chaîne de méthodes d'un tenseur torch
+        def __init__(self, v):
+            self.v = v
+
+        def reshape(self, *_):
+            return self
+
+        def clamp(self, lo, hi):
+            return Audio([max(lo, min(hi, x)) for x in self.v])
+
+        def mul(self, k):
+            return Audio([x * k for x in self.v])
+
+        def short(self):
+            return Audio([int(x) for x in self.v])
+
+        def tolist(self):
+            return self.v
+
+    class Model:
+        sample_rate = 24000
+
+        def __init__(self, language):
+            self.language = language
+
+        def get_state_for_audio_prompt(self, name):
+            calls.append(("voix", self.language, name))
+            return name
+
+        def generate_audio(self, state, text):
+            calls.append(("dit", state, text))
+            return Audio([0.5, -0.5] * 12000)
+
+    fake = types.ModuleType("pocket_tts")
+    fake.TTSModel = types.SimpleNamespace(load_model=lambda language: calls.append(("modèle", language)) or Model(language))
+    monkeypatch.setitem(sys.modules, "pocket_tts", fake)
+    conf = {"provider": "pocket", "sample_rate": 16000, "fallback": "mock",
+            "piper": {"executable": "piper-absent", "models": {}}}
+    tts = make_tts(conf)
+    assert isinstance(tts, PocketTTS) and tts.piper is None               # Piper absent : Pocket seul
+    out = tts.synthesize("Non. [soupir]", "fr", {"pocket_voice": "estelle"}, "neutral", tmp_path / "a.wav")
+    tts.synthesize("Encore.", "fr", {"pocket_voice": "estelle"}, "neutral", tmp_path / "b.wav")
+    with wave.open(str(out)) as w:
+        assert w.getframerate() == 16000 and abs(w.getnframes() / 16000 - 1.0) < 0.05
+    assert calls.count(("modèle", "french")) == 1 and calls.count(("voix", "french", "estelle")) == 1  # chargés une fois
+    assert ("dit", "estelle", "Non.") in calls                            # balises retirées avant la voix
+    with pytest.raises(TTSError):
+        tts.synthesize("Salut", "fr", {"piper_model": "x.onnx"}, "neutral", tmp_path / "c.wav")  # ni Pocket ni Piper
+    monkeypatch.setitem(sys.modules, "pocket_tts", None)                  # paquet absent → repli configuré
+    assert type(make_tts({**conf, "fallback": "mock"})).__name__ == "MockTTS"

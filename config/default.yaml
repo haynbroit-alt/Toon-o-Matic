@@ -148,7 +148,7 @@ llm:
     timeout_s: 600
 
 tts:
-  provider: mock              # mock | chatterbox | xtts | bark | http | elevenlabs
+  provider: mock              # mock | piper | pocket | chatterbox | xtts | bark | http | elevenlabs
   sample_rate: 48000
   xtts:
     model: tts_models/multilingual/multi-dataset/xtts_v2
