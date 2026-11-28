@@ -8,3 +8,4 @@
 - {id: fuite-de-documents, situation: "Des documents confidentiels ont fuité. On découvre qu'ils étaient déjà affichés à l'accueil.", cast: [prez, roxane, ginette], sets: [rue]}
 - {id: canicule-appli, situation: "Canicule record. Kévin lance une appli qui vous dit qu'il fait chaud.", cast: [roxane, kevin, ginette], sets: [rue]}
 - {id: tricherie-examen, situation: "Scandale de triche à un grand examen : le sujet portait sur l'honnêteté.", cast: [prez, roxane, ginette], sets: [salon]}
+- {id: note-du-pays, situation: "Une agence de notation menace de baisser la note du pays. Tout le monde révise en panique, comme la veille du conseil de classe.", cast: [prez, roxane, kevin, ginette], sets: [salon]}
